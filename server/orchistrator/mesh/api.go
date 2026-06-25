@@ -377,6 +377,7 @@ func (api *APIServer) handleGetTxPower(w http.ResponseWriter, r *http.Request) {
 
 // handleSetTxPower sets the TX power preset on all nodes
 func (api *APIServer) handleSetTxPower(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestBodyBytes)
 	var body struct {
 		Preset uint8 `json:"preset"`
 	}
