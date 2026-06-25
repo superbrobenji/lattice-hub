@@ -33,7 +33,7 @@ type MeshServer struct {
 	serialComm     *SerialComm
 	nodeRegistry   *NodeRegistry
 	messageBuilder *MessageBuilder
-	eventStore     EventStore.EventStore_interface
+	eventStore     EventStore.EventStoreInterface
 
 	// Auth
 	authRegistry *nodeauth.Registry
@@ -62,7 +62,7 @@ type MeshServerConfig struct {
 	SerialPort       string
 	BaudRate         int
 	HealthTimeout    time.Duration
-	EventStore       EventStore.EventStore_interface
+	EventStore       EventStore.EventStoreInterface
 	AuthRegistryPath string // e.g. "data/nodeauth.json"
 }
 

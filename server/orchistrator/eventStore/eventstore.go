@@ -1,7 +1,9 @@
 package eventstore
 
-type EventStore_interface interface {
+// EventStoreInterface defines the event storage contract.
+type EventStoreInterface interface {
 	Connect() error
 	WriteMessage(event string, topic string) error
 	SubscribeToEvents(topic string) error
+	Close() error
 }

@@ -3,87 +3,88 @@ package eventstore
 import (
 	"context"
 	"fmt"
+	"net"
+	"time"
 
 	"github.com/segmentio/kafka-go"
 )
 
 type store struct {
-	broker string
+	broker  string
 	groupId string
-	writer *kafka.Writer
-	reader *kafka.Reader
+	writer  *kafka.Writer
+	reader  *kafka.Reader
 }
 
-func New(broker string, groupId string) EventStore_interface {
-	var eventStore EventStore_interface
-	eventStore = &store{
-		broker:  broker,
-		groupId: groupId,
+func New(broker string, groupId string) EventStoreInterface {
+	return &store{broker: broker, groupId: groupId}
+}
+
+func (s *store) Connect() error {
+	fmt.Printf("connecting to Kafka: %v\n", s.broker)
+
+	conn, err := net.DialTimeout("tcp", s.broker, 5*time.Second)
+	if err != nil {
+		return fmt.Errorf("kafka broker unreachable at %s: %w", s.broker, err)
 	}
-	return eventStore
-}
+	conn.Close()
 
-func (store *store) Connect() error {
-	fmt.Printf("connecting to Kafka: %v\n", store.broker)
-	
-	// Create writer for producing messages
-	store.writer = &kafka.Writer{
-		Addr:     kafka.TCP(store.broker),
+	s.writer = &kafka.Writer{
+		Addr:     kafka.TCP(s.broker),
 		Balancer: &kafka.LeastBytes{},
 	}
-	
-	// Since we have health checks in docker-compose, we can skip the connection test
-	// The health check already verifies Kafka is ready
-	
-	// Don't create reader here - it will be created when subscribing to specific topics
-	store.reader = nil
-	
-	fmt.Printf("connection successful with Kafka: %v\n", store.broker)
+
+	fmt.Printf("connected to Kafka: %v\n", s.broker)
 	return nil
 }
 
-func (store *store) WriteMessage(event string, topic string) error {
-	fmt.Printf("Delivering %v to topic %v\n", event, topic)
-	
-	err := store.writer.WriteMessages(context.Background(),
-		kafka.Message{
-			Topic: topic,
-			Value: []byte(event),
-		},
+func (s *store) WriteMessage(event string, topic string) error {
+	if s.writer == nil {
+		return fmt.Errorf("not connected")
+	}
+	fmt.Printf("Delivering to topic %v\n", topic)
+	err := s.writer.WriteMessages(context.Background(),
+		kafka.Message{Topic: topic, Value: []byte(event)},
 	)
-	
 	if err != nil {
 		fmt.Printf("Delivery failed: %v\n", err)
 		return err
 	}
-	
-	fmt.Printf("Delivered message to topic %v\n", topic)
+	fmt.Printf("Delivered to topic %v\n", topic)
 	return nil
 }
 
-func (store *store) SubscribeToEvents(topic string) error {
-	// Close existing reader if any
-	if store.reader != nil {
-		store.reader.Close()
+func (s *store) SubscribeToEvents(topic string) error {
+	if s.reader != nil {
+		s.reader.Close()
 	}
-	
-	// Configure reader for specific topic
-	store.reader = kafka.NewReader(kafka.ReaderConfig{
-		Brokers: []string{store.broker},
+	s.reader = kafka.NewReader(kafka.ReaderConfig{
+		Brokers: []string{s.broker},
 		Topic:   topic,
-		GroupID: store.groupId,
+		GroupID: s.groupId,
 	})
-
 	fmt.Printf("Subscribed to topic: %s\n", topic)
-
 	for {
-		msg, err := store.reader.ReadMessage(context.Background())
-		if err == nil {
-			fmt.Printf("Message on topic %s: %s\n", msg.Topic, string(msg.Value))
-		} else {
+		msg, err := s.reader.ReadMessage(context.Background())
+		if err != nil {
 			fmt.Printf("Consumer error: %v\n", err)
-			store.reader.Close()
+			s.reader.Close()
 			return err
 		}
+		fmt.Printf("Message on %s: %s\n", msg.Topic, string(msg.Value))
 	}
+}
+
+func (s *store) Close() error {
+	if s.reader != nil {
+		if err := s.reader.Close(); err != nil {
+			return fmt.Errorf("closing reader: %w", err)
+		}
+	}
+	if s.writer != nil {
+		if err := s.writer.Close(); err != nil {
+			return fmt.Errorf("closing writer: %w", err)
+		}
+	}
+	return nil
 }
