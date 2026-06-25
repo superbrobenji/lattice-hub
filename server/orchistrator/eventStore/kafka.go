@@ -27,7 +27,7 @@ func (s *store) Connect() error {
 	if err != nil {
 		return fmt.Errorf("kafka broker unreachable at %s: %w", s.broker, err)
 	}
-	conn.Close()
+	_ = conn.Close()
 
 	s.writer = &kafka.Writer{
 		Addr:     kafka.TCP(s.broker),
@@ -68,7 +68,8 @@ func (s *store) SubscribeToEvents(topic string) error {
 		msg, err := s.reader.ReadMessage(context.Background())
 		if err != nil {
 			fmt.Printf("Consumer error: %v\n", err)
-			s.reader.Close()
+			_ = s.reader.Close()
+			s.reader = nil
 			return err
 		}
 		fmt.Printf("Message on %s: %s\n", msg.Topic, string(msg.Value))
