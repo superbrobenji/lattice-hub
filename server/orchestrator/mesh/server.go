@@ -179,10 +179,10 @@ func (ms *MeshServer) Stop() error {
 
 	if ms.serialComm != nil {
 		ms.serialComm.Close()
+		SetSerialConnected(false)
 	}
 
 	ms.wg.Wait()
-	SetSerialConnected(false)
 	slog.Info("Mesh server stopped")
 	return nil
 }
@@ -206,6 +206,7 @@ func (ms *MeshServer) messageProcessor() {
 					slog.Warn("Serial frame read error", "count", consecutiveErrors, "error", err)
 				} else if consecutiveErrors == maxConsecutiveErrors+1 {
 					slog.Error("Serial read suppressed — too many consecutive errors", "count", consecutiveErrors)
+					SetSerialConnected(false)
 				}
 
 				// After many consecutive errors, try to flush the buffer
@@ -378,7 +379,11 @@ func (ms *MeshServer) handleEnrollmentRequest(msg *MeshMessage) error {
 	}
 	if ms.eventStore != nil {
 		j, _ := json.Marshal(event)
-		ms.eventStore.WriteMessage(string(j), "mesh-enrollment")
+		err := ms.eventStore.WriteMessage(string(j), "mesh-enrollment")
+		if err != nil {
+			slog.Warn("Failed to write enrollment event to Kafka", "error", err)
+		}
+		RecordKafkaWrite("mesh-enrollment", err)
 	}
 	return nil
 }

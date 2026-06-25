@@ -54,31 +54,31 @@ func (api *APIServer) setupRoutes() {
 	}
 
 	// Node management
-	sub.HandleFunc("/nodes", api.getNodes).Methods("GET")
-	sub.HandleFunc("/nodes/{mac}", api.getNode).Methods("GET")
-	sub.HandleFunc("/nodes/{mac}/configure", api.configureNode).Methods("POST")
-	sub.HandleFunc("/nodes/configure-all", api.configureAllNodes).Methods("POST")
+	sub.Handle("/nodes", InstrumentHandler("/nodes", http.HandlerFunc(api.getNodes))).Methods("GET")
+	sub.Handle("/nodes/{mac}", InstrumentHandler("/nodes/{mac}", http.HandlerFunc(api.getNode))).Methods("GET")
+	sub.Handle("/nodes/{mac}/configure", InstrumentHandler("/nodes/{mac}/configure", http.HandlerFunc(api.configureNode))).Methods("POST")
+	sub.Handle("/nodes/configure-all", InstrumentHandler("/nodes/configure-all", http.HandlerFunc(api.configureAllNodes))).Methods("POST")
 
 	// Health and monitoring
-	sub.HandleFunc("/health/request", api.requestHealth).Methods("POST")
-	sub.HandleFunc("/status", api.getStatus).Methods("GET")
+	sub.Handle("/health/request", InstrumentHandler("/health/request", http.HandlerFunc(api.requestHealth))).Methods("POST")
+	sub.Handle("/status", InstrumentHandler("/status", http.HandlerFunc(api.getStatus))).Methods("GET")
 
 	// Data broadcasting
-	sub.HandleFunc("/broadcast", api.broadcastData).Methods("POST")
+	sub.Handle("/broadcast", InstrumentHandler("/broadcast", http.HandlerFunc(api.broadcastData))).Methods("POST")
 
 	// Server control
-	sub.HandleFunc("/server/start", api.startServer).Methods("POST")
-	sub.HandleFunc("/server/stop", api.stopServer).Methods("POST")
+	sub.Handle("/server/start", InstrumentHandler("/server/start", http.HandlerFunc(api.startServer))).Methods("POST")
+	sub.Handle("/server/stop", InstrumentHandler("/server/stop", http.HandlerFunc(api.stopServer))).Methods("POST")
 
 	// Enrollment management
-	sub.HandleFunc("/api/enrollments/pending", api.getPendingEnrollments).Methods("GET")
-	sub.HandleFunc("/api/enrollments", api.getAllEnrollments).Methods("GET")
-	sub.HandleFunc("/api/enrollments/{mac}/approve", api.approveEnrollment).Methods("POST")
-	sub.HandleFunc("/api/enrollments/{mac}/reject", api.rejectEnrollment).Methods("POST")
+	sub.Handle("/api/enrollments/pending", InstrumentHandler("/api/enrollments/pending", http.HandlerFunc(api.getPendingEnrollments))).Methods("GET")
+	sub.Handle("/api/enrollments", InstrumentHandler("/api/enrollments", http.HandlerFunc(api.getAllEnrollments))).Methods("GET")
+	sub.Handle("/api/enrollments/{mac}/approve", InstrumentHandler("/api/enrollments/{mac}/approve", http.HandlerFunc(api.approveEnrollment))).Methods("POST")
+	sub.Handle("/api/enrollments/{mac}/reject", InstrumentHandler("/api/enrollments/{mac}/reject", http.HandlerFunc(api.rejectEnrollment))).Methods("POST")
 
 	// TX power
-	sub.HandleFunc("/api/tx-power", api.handleGetTxPower).Methods("GET")
-	sub.HandleFunc("/api/tx-power", api.handleSetTxPower).Methods("POST")
+	sub.Handle("/api/tx-power", InstrumentHandler("/api/tx-power", http.HandlerFunc(api.handleGetTxPower))).Methods("GET")
+	sub.Handle("/api/tx-power", InstrumentHandler("/api/tx-power", http.HandlerFunc(api.handleSetTxPower))).Methods("POST")
 }
 
 // ServeHTTP implements the http.Handler interface
