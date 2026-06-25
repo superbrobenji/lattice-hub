@@ -51,6 +51,10 @@ func (api *APIServer) setupRoutes() {
 	api.router.HandleFunc("/api/enrollments", api.getAllEnrollments).Methods("GET")
 	api.router.HandleFunc("/api/enrollments/{mac}/approve", api.approveEnrollment).Methods("POST")
 	api.router.HandleFunc("/api/enrollments/{mac}/reject", api.rejectEnrollment).Methods("POST")
+
+	// TX power
+	api.router.HandleFunc("/api/tx-power", api.handleGetTxPower).Methods("GET")
+	api.router.HandleFunc("/api/tx-power", api.handleSetTxPower).Methods("POST")
 }
 
 // ServeHTTP implements the http.Handler interface
@@ -328,6 +332,47 @@ func (api *APIServer) rejectEnrollment(w http.ResponseWriter, r *http.Request) {
 	api.writeJSON(w, http.StatusOK, APIResponse{
 		Success: true,
 		Message: fmt.Sprintf("Enrollment rejected for %s", mac),
+	})
+}
+
+// handleGetTxPower returns the current TX power preset and available options
+func (api *APIServer) handleGetTxPower(w http.ResponseWriter, r *http.Request) {
+	preset, name := api.meshServer.GetTxPowerPreset()
+	api.writeJSON(w, http.StatusOK, APIResponse{
+		Success: true,
+		Data: map[string]interface{}{
+			"preset": preset,
+			"name":   name,
+			"options": []map[string]interface{}{
+				{"value": 0, "label": "Short Range (2dBm) — same room"},
+				{"value": 1, "label": "Indoor (14dBm) — through walls"},
+				{"value": 2, "label": "Outdoor (20dBm) — maximum range"},
+			},
+		},
+	})
+}
+
+// handleSetTxPower sets the TX power preset on all nodes
+func (api *APIServer) handleSetTxPower(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		Preset uint8 `json:"preset"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		api.writeError(w, http.StatusBadRequest, fmt.Sprintf("invalid request body: %v", err))
+		return
+	}
+	if err := api.meshServer.SetTxPowerPreset(body.Preset); err != nil {
+		api.writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	_, name := api.meshServer.GetTxPowerPreset()
+	api.writeJSON(w, http.StatusOK, APIResponse{
+		Success: true,
+		Data: map[string]interface{}{
+			"status": "ok",
+			"preset": body.Preset,
+			"name":   name,
+		},
 	})
 }
 

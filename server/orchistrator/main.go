@@ -23,6 +23,7 @@ func main() {
 	baudRate := flag.Int("baud", 115200, "Serial baud rate")
 	apiPort := flag.Int("port", 8080, "HTTP API port")
 	authRegistry := flag.String("auth-registry", "data/nodeauth.json", "Path to node auth registry JSON")
+	txPowerPreset := flag.Uint("tx-power", 2, "TX power preset: 0=short_range, 1=indoor, 2=outdoor")
 	flag.Parse()
 
 	// Ensure data directory exists for auth registry
@@ -79,7 +80,12 @@ func main() {
 		log.Printf("Mesh functionality will be disabled")
 	} else {
 		log.Printf("Mesh server started successfully")
-		
+
+		// Apply initial TX power preset
+		if err := meshServer.SetTxPowerPreset(uint8(*txPowerPreset)); err != nil {
+			log.Printf("[MAIN] Failed to set initial TX power preset: %v", err)
+		}
+
 		// Request initial health reports
 		time.AfterFunc(2*time.Second, func() {
 			if err := meshServer.RequestHealthReports(); err != nil {

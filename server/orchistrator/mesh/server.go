@@ -14,6 +14,20 @@ import (
 	"go.bug.st/serial"
 )
 
+// TX power preset constants
+const (
+	OpTxPowerSet      = 0xA1
+	TxPowerShortRange = 0 // 2dBm  — same room
+	TxPowerIndoor     = 1 // 14dBm — through walls
+	TxPowerOutdoor    = 2 // 20dBm — outdoor, max range (default)
+)
+
+var txPowerPresetNames = map[uint8]string{
+	TxPowerShortRange: "short_range",
+	TxPowerIndoor:     "indoor",
+	TxPowerOutdoor:    "outdoor",
+}
+
 // MeshServer manages the mesh network communication
 type MeshServer struct {
 	serialComm     *SerialComm
@@ -31,6 +45,9 @@ type MeshServer struct {
 	serialPort    string
 	baudRate      int
 	healthTimeout time.Duration
+
+	// TX power
+	currentTxPreset uint8
 
 	// Runtime state
 	ctx     context.Context
@@ -522,6 +539,32 @@ func (ms *MeshServer) IsRunning() bool {
 	ms.mu.RLock()
 	defer ms.mu.RUnlock()
 	return ms.running
+}
+
+// SetTxPowerPreset sends OP_TX_POWER_SET to master via serial.
+// Master applies locally and broadcasts to all enrolled nodes.
+func (ms *MeshServer) SetTxPowerPreset(preset uint8) error {
+	if preset > 2 {
+		return fmt.Errorf("invalid TX power preset %d: must be 0 (short), 1 (indoor), or 2 (outdoor)", preset)
+	}
+
+	// Frame: [2-byte LE length][A1][preset]
+	payload := []byte{OpTxPowerSet, preset}
+	header := []byte{byte(len(payload) & 0xFF), byte((len(payload) >> 8) & 0xFF)}
+	frame := append(header, payload...)
+
+	if err := ms.serialComm.WriteRaw(frame); err != nil {
+		return fmt.Errorf("failed to send TX power preset: %w", err)
+	}
+
+	ms.currentTxPreset = preset
+	log.Printf("[TX_POWER] Preset set to %s (%d)", txPowerPresetNames[preset], preset)
+	return nil
+}
+
+// GetTxPowerPreset returns the current TX power preset value and name.
+func (ms *MeshServer) GetTxPowerPreset() (uint8, string) {
+	return ms.currentTxPreset, txPowerPresetNames[ms.currentTxPreset]
 }
 
 // logMessageToKafka logs messages to Kafka for debugging and monitoring
