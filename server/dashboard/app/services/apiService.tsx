@@ -47,7 +47,7 @@ export default async function ApiService<ApiResponse>(
 
 export async function dev_ApiService<ApiResponse>(
   service: ServiceName,
-  options?: RequestInit
+  _options?: RequestInit
 ): Promise<ApiResponse> {
   const dev_endpoints = {
     // node management
