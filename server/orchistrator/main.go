@@ -132,14 +132,8 @@ func main() {
 	<-sigChan
 	log.Printf("Shutdown signal received, stopping services...")
 
-	// Stop mesh server
-	if meshServer.IsRunning() {
-		if err := meshServer.Stop(); err != nil {
-			log.Printf("Error stopping mesh server: %v", err)
-		}
-	}
-
-	// Gracefully shut down HTTP API server
+	// 1. Gracefully shut down HTTP API server first so in-flight requests
+	//    can complete before the underlying mesh server is torn down.
 	log.Printf("Shutting down API server...")
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer shutdownCancel()
@@ -147,7 +141,14 @@ func main() {
 		log.Printf("API server shutdown error: %v", err)
 	}
 
-	// Close event store
+	// 2. Stop mesh server after HTTP is no longer accepting requests.
+	if meshServer.IsRunning() {
+		if err := meshServer.Stop(); err != nil {
+			log.Printf("Error stopping mesh server: %v", err)
+		}
+	}
+
+	// 3. Close event store last so any pending Kafka flushes complete.
 	if eventStore != nil {
 		if err := eventStore.Close(); err != nil {
 			log.Printf("Error closing event store: %v", err)
