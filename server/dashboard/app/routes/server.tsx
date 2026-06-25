@@ -1,11 +1,11 @@
 import { useFetcher } from "react-router";
 import type { Route } from "../+types/root";
-import ApiService, { dev_ApiService, getTxPower, setTxPower } from "../services/apiService";
+import ApiService, { getTxPower, setTxPower } from "../services/apiService";
 import type { IApiResponse, ITxPowerStatus } from "~/interfaces/IApiService";
 import { useState, useEffect } from "react";
 import { formatTime } from "~/services/formatDateTime";
 
-export async function loader({ request }: Route.LoaderArgs) {
+export async function loader({ request: _request }: Route.LoaderArgs) {
   // Get server status from API
      const status = await ApiService<{ status: string }>("getStatus");
   //const response = (await dev_ApiService("getStatus")) as IApiResponse;
@@ -76,7 +76,7 @@ function TxPowerSelector() {
 
 export default function Server({ loaderData }: { loaderData?: IApiResponse }) {
   const fetcher = useFetcher<{ status: string }>();
-  const [serverData, setServerData] = useState(
+  const [serverData] = useState(
     loaderData?.data ?? { running: false }
   );
 
