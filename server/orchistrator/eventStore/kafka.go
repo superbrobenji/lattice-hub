@@ -3,6 +3,7 @@ package eventstore
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"net"
 	"time"
 
@@ -21,7 +22,7 @@ func New(broker string, groupId string) EventStoreInterface {
 }
 
 func (s *store) Connect() error {
-	fmt.Printf("connecting to Kafka: %v\n", s.broker)
+	slog.Info("Connecting to Kafka", "broker", s.broker)
 
 	conn, err := net.DialTimeout("tcp", s.broker, 5*time.Second)
 	if err != nil {
@@ -34,7 +35,7 @@ func (s *store) Connect() error {
 		Balancer: &kafka.LeastBytes{},
 	}
 
-	fmt.Printf("connected to Kafka: %v\n", s.broker)
+	slog.Info("Connected to Kafka", "broker", s.broker)
 	return nil
 }
 
@@ -42,19 +43,19 @@ func (s *store) WriteMessage(event string, topic string) error {
 	if s.writer == nil {
 		return fmt.Errorf("not connected")
 	}
-	fmt.Printf("Delivering to topic %v\n", topic)
+	slog.Debug("Delivering message", "topic", topic)
 	err := s.writer.WriteMessages(context.Background(),
 		kafka.Message{Topic: topic, Value: []byte(event)},
 	)
 	if err != nil {
-		fmt.Printf("Delivery failed: %v\n", err)
+		slog.Error("Kafka delivery failed", "error", err)
 		return err
 	}
-	fmt.Printf("Delivered to topic %v\n", topic)
+	slog.Debug("Delivered message", "topic", topic)
 	return nil
 }
 
-func (s *store) SubscribeToEvents(topic string) error {
+func (s *store) SubscribeToEvents(ctx context.Context, topic string) error {
 	if s.reader != nil {
 		s.reader.Close()
 	}
@@ -63,16 +64,18 @@ func (s *store) SubscribeToEvents(topic string) error {
 		Topic:   topic,
 		GroupID: s.groupId,
 	})
-	fmt.Printf("Subscribed to topic: %s\n", topic)
+	slog.Info("Subscribed to Kafka topic", "topic", topic)
 	for {
-		msg, err := s.reader.ReadMessage(context.Background())
+		msg, err := s.reader.ReadMessage(ctx)
 		if err != nil {
-			fmt.Printf("Consumer error: %v\n", err)
-			_ = s.reader.Close()
-			s.reader = nil
+			if ctx.Err() != nil {
+				return nil // clean shutdown
+			}
+			slog.Error("Kafka consumer error", "topic", topic, "error", err)
+			s.reader.Close()
 			return err
 		}
-		fmt.Printf("Message on %s: %s\n", msg.Topic, string(msg.Value))
+		slog.Debug("Kafka message received", "topic", msg.Topic, "value", string(msg.Value))
 	}
 }
 

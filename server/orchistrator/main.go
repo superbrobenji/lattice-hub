@@ -3,7 +3,7 @@ package main
 import (
 	"context"
 	"flag"
-	"log"
+	"log/slog"
 	"os"
 	"os/signal"
 	"strings"
@@ -20,7 +20,20 @@ func main() {
 	authRegistryPath := envOrDefault("AUTH_REGISTRY_PATH", "data/nodeauth.json")
 	nodeRegistryPath := envOrDefault("NODE_REGISTRY_PATH", "data/nodes.json")
 	logLevel := envOrDefault("LOG_LEVEL", "INFO")
-	_ = logLevel // placeholder: will be wired to slog in a future task
+
+	// Configure slog before anything else
+	var slogLevel slog.Level
+	switch logLevel {
+	case "DEBUG":
+		slogLevel = slog.LevelDebug
+	case "WARN":
+		slogLevel = slog.LevelWarn
+	case "ERROR":
+		slogLevel = slog.LevelError
+	default:
+		slogLevel = slog.LevelInfo
+	}
+	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slogLevel})))
 
 	// Command line flags
 	serialPort := flag.String("serial", envOrDefault("SERIAL_PORT", "/dev/ttyUSB0"), "Serial port for mesh communication")
@@ -33,39 +46,38 @@ func main() {
 
 	// Ensure data directory exists for auth registry
 	if err := os.MkdirAll("data", 0750); err != nil {
-		log.Printf("Warning: Failed to create data directory: %v", err)
+		slog.Warn("Failed to create data directory", "error", err)
 	}
 
-	log.Printf("Starting Planetopia Motion Sensor Server")
-	log.Printf("Serial: %s @ %d baud", *serialPort, *baudRate)
-	log.Printf("API Port: %d", *apiPort)
-	log.Printf("Kafka Broker: %s", broker)
+	slog.Info("Starting Planetopia Motion Sensor Server")
+	slog.Info("Serial", "port", *serialPort, "baud", *baudRate)
+	slog.Info("API Port", "port", *apiPort)
+	slog.Info("Kafka Broker", "broker", broker)
 
 	// Setup event store with retry logic
 	var eventStore EventStore.EventStoreInterface
 	maxRetries := 3
 	retryDelay := 1 * time.Second
-	
-	log.Printf("Attempting to connect to Kafka with %d retries...", maxRetries)
+
+	slog.Info("Attempting to connect to Kafka", "maxRetries", maxRetries)
 	for i := 0; i < maxRetries; i++ {
 		eventStore = EventStore.New(broker, groupId)
 		err := eventStore.Connect()
 		if err == nil {
-			log.Printf("Connected to Kafka successfully on attempt %d", i+1)
+			slog.Info("Connected to Kafka successfully", "attempt", i+1)
 			break
 		}
-		
-		log.Printf("Kafka connection attempt %d failed: %v", i+1, err)
+
+		slog.Warn("Kafka connection attempt failed", "attempt", i+1, "error", err)
 		if i < maxRetries-1 {
-			log.Printf("Retrying in %v...", retryDelay)
+			slog.Info("Retrying Kafka connection", "delay", retryDelay)
 			time.Sleep(retryDelay)
 			eventStore = nil
 		}
 	}
-	
+
 	if eventStore == nil {
-		log.Printf("Warning: Failed to connect to Kafka after %d attempts", maxRetries)
-		log.Printf("Continuing without Kafka integration...")
+		slog.Warn("Failed to connect to Kafka after all attempts — continuing without Kafka integration", "maxRetries", maxRetries)
 	}
 
 	// Setup mesh server
@@ -82,20 +94,19 @@ func main() {
 
 	// Start mesh server
 	if err := meshServer.Start(); err != nil {
-		log.Printf("Warning: Failed to start mesh server: %v", err)
-		log.Printf("Mesh functionality will be disabled")
+		slog.Warn("Failed to start mesh server — mesh functionality will be disabled", "error", err)
 	} else {
-		log.Printf("Mesh server started successfully")
+		slog.Info("Mesh server started successfully")
 
 		// Apply initial TX power preset
 		if err := meshServer.SetTxPowerPreset(uint8(*txPowerPreset)); err != nil {
-			log.Printf("[MAIN] Failed to set initial TX power preset: %v", err)
+			slog.Warn("Failed to set initial TX power preset", "error", err)
 		}
 
 		// Request initial health reports
 		time.AfterFunc(2*time.Second, func() {
 			if err := meshServer.RequestHealthReports(); err != nil {
-				log.Printf("Failed to request initial health reports: %v", err)
+				slog.Warn("Failed to request initial health reports", "error", err)
 			}
 		})
 	}
@@ -103,7 +114,7 @@ func main() {
 	// Read API key from environment
 	apiKey := os.Getenv("API_KEY")
 	if apiKey == "" {
-		log.Printf("Warning: API_KEY is not set — HTTP API will run without authentication")
+		slog.Warn("API_KEY is not set — HTTP API will run without authentication")
 	}
 
 	// Read allowed CORS origins from environment
@@ -117,7 +128,8 @@ func main() {
 	// Start HTTP API server
 	shutdownAPI, err := mesh.StartAPIServer(meshServer, *apiPort, apiKey, allowedOrigins)
 	if err != nil {
-		log.Fatalf("Failed to start API server: %v", err)
+		slog.Error("Failed to start API server", "error", err)
+		os.Exit(1)
 	}
 
 	// Setup graceful shutdown
@@ -126,34 +138,34 @@ func main() {
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 
-	log.Printf("Server started successfully. Press Ctrl+C to shutdown.")
-	
+	slog.Info("Server started successfully. Press Ctrl+C to shutdown.")
+
 	// Wait for shutdown signal
 	<-sigChan
-	log.Printf("Shutdown signal received, stopping services...")
+	slog.Info("Shutdown signal received, stopping services...")
 
 	// 1. Gracefully shut down HTTP API server first so in-flight requests
 	//    can complete before the underlying mesh server is torn down.
-	log.Printf("Shutting down API server...")
+	slog.Info("Shutting down API server...")
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer shutdownCancel()
 	if err := shutdownAPI(shutdownCtx); err != nil {
-		log.Printf("API server shutdown error: %v", err)
+		slog.Warn("API server shutdown error", "error", err)
 	}
 
 	// 2. Stop mesh server after HTTP is no longer accepting requests.
 	if meshServer.IsRunning() {
 		if err := meshServer.Stop(); err != nil {
-			log.Printf("Error stopping mesh server: %v", err)
+			slog.Warn("Error stopping mesh server", "error", err)
 		}
 	}
 
 	// 3. Close event store last so any pending Kafka flushes complete.
 	if eventStore != nil {
 		if err := eventStore.Close(); err != nil {
-			log.Printf("Error closing event store: %v", err)
+			slog.Warn("Error closing event store", "error", err)
 		}
 	}
 
-	log.Printf("Server shutdown complete")
+	slog.Info("Server shutdown complete")
 }

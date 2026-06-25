@@ -1,6 +1,10 @@
 package mesh
 
-import EventStore "github.com/superbrobenji/motionServer/eventStore"
+import (
+	"context"
+
+	EventStore "github.com/superbrobenji/motionServer/eventStore"
+)
 
 // MockEventStore provides a mock implementation for testing.
 type MockEventStore struct {
@@ -15,9 +19,9 @@ func NewMockEventStore() *MockEventStore {
 	}
 }
 
-func (m *MockEventStore) Connect() error                             { return nil }
-func (m *MockEventStore) Close() error                              { return nil }
-func (m *MockEventStore) SubscribeToEvents(topic string) error      { return nil }
+func (m *MockEventStore) Connect() error                                        { return nil }
+func (m *MockEventStore) Close() error                                          { return nil }
+func (m *MockEventStore) SubscribeToEvents(ctx context.Context, topic string) error { return nil }
 
 func (m *MockEventStore) WriteMessage(event string, topic string) error {
 	m.messages = append(m.messages, event)

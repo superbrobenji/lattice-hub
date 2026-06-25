@@ -1,7 +1,7 @@
 package main
 
 import (
-	"log"
+	"log/slog"
 	"os"
 	"strconv"
 )
@@ -20,7 +20,7 @@ func envOrDefaultInt(key string, def int) int {
 	}
 	n, err := strconv.Atoi(v)
 	if err != nil {
-		log.Printf("Warning: invalid value for %s=%q, using default %d", key, v, def)
+		slog.Warn("Invalid env var value, using default", "key", key, "value", v, "default", def)
 		return def
 	}
 	return n

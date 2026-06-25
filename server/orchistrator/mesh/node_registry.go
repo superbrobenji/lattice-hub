@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"sync"
@@ -188,7 +188,7 @@ func (nr *NodeRegistry) Load(path string) error {
 	for _, e := range entries {
 		mac, err := StringToMAC(e.MAC)
 		if err != nil {
-			log.Printf("[NodeRegistry] Skipping invalid MAC %s: %v", e.MAC, err)
+			slog.Warn("Skipping invalid MAC in node registry", "mac", e.MAC, "error", err)
 			continue
 		}
 		nr.nodes[e.MAC] = &NodeInfo{
@@ -200,7 +200,7 @@ func (nr *NodeRegistry) Load(path string) error {
 			HopCount:    e.HopCount,
 		}
 	}
-	log.Printf("[NodeRegistry] Loaded %d nodes from %s", len(entries), path)
+	slog.Info("Node registry loaded", "count", len(entries), "path", path)
 	return nil
 }
 
@@ -212,11 +212,11 @@ func (nr *NodeRegistry) PersistLoop(path string, interval time.Duration, stop <-
 		select {
 		case <-t.C:
 			if err := nr.Persist(path); err != nil {
-				log.Printf("[NodeRegistry] Failed to persist: %v", err)
+				slog.Warn("Node registry persist failed", "error", err)
 			}
 		case <-stop:
 			if err := nr.Persist(path); err != nil {
-				log.Printf("[NodeRegistry] Final persist failed: %v", err)
+				slog.Warn("Node registry final persist failed", "error", err)
 			}
 			return
 		}

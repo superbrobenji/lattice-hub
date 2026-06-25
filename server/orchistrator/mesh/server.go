@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
+	"log/slog"
 	"sync"
 	"time"
 
@@ -78,14 +78,14 @@ func NewMeshServer(config MeshServerConfig) *MeshServer {
 	registry := nodeauth.NewRegistry()
 	if config.AuthRegistryPath != "" {
 		if err := registry.Load(config.AuthRegistryPath); err != nil {
-			log.Printf("[AUTH] Failed to load auth registry: %v", err)
+			slog.Warn("Failed to load auth registry", "error", err)
 		}
 	}
 
 	nodeRegistry := NewNodeRegistry()
 	if config.NodeRegistryPath != "" {
 		if err := nodeRegistry.Load(config.NodeRegistryPath); err != nil {
-			log.Printf("[MeshServer] Failed to load node registry: %v", err)
+			slog.Warn("Failed to load node registry", "error", err)
 		}
 	}
 
@@ -154,7 +154,7 @@ func (ms *MeshServer) Start() error {
 		}()
 	}
 
-	log.Printf("Mesh server started on serial port %s at %d baud", ms.serialPort, ms.baudRate)
+	slog.Info("Mesh server started", "port", ms.serialPort, "baud", ms.baudRate)
 	return nil
 }
 
@@ -181,7 +181,7 @@ func (ms *MeshServer) Stop() error {
 	}
 
 	ms.wg.Wait()
-	log.Printf("Mesh server stopped")
+	slog.Info("Mesh server stopped")
 	return nil
 }
 
@@ -201,19 +201,16 @@ func (ms *MeshServer) messageProcessor() {
 			if err != nil {
 				consecutiveErrors++
 				if consecutiveErrors <= maxConsecutiveErrors {
-					log.Printf("[MSG_PROCESSOR] Error reading frame (#%d): %v", consecutiveErrors, err)
+					slog.Warn("Serial frame read error", "count", consecutiveErrors, "error", err)
 				} else if consecutiveErrors == maxConsecutiveErrors+1 {
-					log.Printf("[MSG_PROCESSOR] Too many consecutive frame errors (%d), suppressing further error messages. Last error: %v", consecutiveErrors, err)
-					log.Printf("[MSG_PROCESSOR] Note: If you see 'frame length too large' with ASCII characters (like 'un', 't:', '--'), the ESP32 might be sending text data instead of binary protobuf frames.")
-					log.Printf("[MSG_PROCESSOR] Check ESP32 firmware and ensure it's configured for mesh protocol, not debug output.")
-					log.Printf("[MSG_PROCESSOR] Consider restarting ESP32 or checking serial connection.")
+					slog.Error("Serial read suppressed — too many consecutive errors", "count", consecutiveErrors)
 				}
 
 				// After many consecutive errors, try to flush the buffer
 				if consecutiveErrors == 10 {
-					log.Printf("[MSG_PROCESSOR] Attempting buffer flush after %d consecutive errors", consecutiveErrors)
+					slog.Warn("Attempting buffer flush after consecutive errors", "count", consecutiveErrors)
 					if flushErr := ms.serialComm.FlushBuffer(); flushErr != nil {
-						log.Printf("[MSG_PROCESSOR] Buffer flush failed: %v", flushErr)
+						slog.Warn("Buffer flush failed", "error", flushErr)
 					}
 				}
 
@@ -229,18 +226,15 @@ func (ms *MeshServer) messageProcessor() {
 			// Reset error counter on successful read
 			if consecutiveErrors > 0 {
 				if consecutiveErrors > maxConsecutiveErrors {
-					log.Printf("Frame reading recovered after %d consecutive errors", consecutiveErrors)
+					slog.Info("Frame reading recovered", "consecutiveErrors", consecutiveErrors)
 				}
 				consecutiveErrors = 0
 			}
 
-			log.Printf("[MSG_PROCESSOR] Successfully received message from serial port - Type: %d, DataType: %d, Origin: %s",
-				msg.MessageType, msg.DataType, macToString(msg.OriginMacAddress))
+			slog.Debug("Message received", "type", msg.MessageType, "dataType", msg.DataType, "origin", macToString(msg.OriginMacAddress))
 
 			if err := ms.handleMessage(msg); err != nil {
-				log.Printf("[MSG_PROCESSOR] Error handling message: %v", err)
-			} else {
-				log.Printf("[MSG_PROCESSOR] Message processed successfully")
+				slog.Error("Message handling failed", "error", err)
 			}
 		}
 	}
@@ -251,27 +245,27 @@ func (ms *MeshServer) handleMessage(msg *MeshMessage) error {
 	// Proto version check — version 0 means legacy (pre-security) node; allow it.
 	// Any protoVersion > 0 that is not 1 is an unknown future version; drop it.
 	if msg.ProtoVersion > 0 && msg.ProtoVersion != 1 {
-		log.Printf("[MSG] Unsupported proto version %d from %x — dropping", msg.ProtoVersion, msg.OriginMacAddress)
+		slog.Warn("Unsupported proto version — dropping", "version", msg.ProtoVersion, "origin", fmt.Sprintf("%x", msg.OriginMacAddress))
 		return nil
 	}
 
 	// Replay check (only for proto v1 messages with epoch/seq set)
 	if msg.ProtoVersion == 1 && msg.EpochNum > 0 {
 		if len(msg.OriginMacAddress) != 6 {
-			log.Printf("[MSG] dropping message: OriginMacAddress not 6 bytes, len=%d", len(msg.OriginMacAddress))
+			slog.Warn("Dropping message: invalid OriginMacAddress length", "len", len(msg.OriginMacAddress))
 			return nil
 		}
 		var mac [6]byte
 		copy(mac[:], msg.OriginMacAddress)
 		if ms.replayCache.IsDuplicate(mac, msg.EpochNum, msg.SeqNum) {
-			log.Printf("[MSG] Replayed message dropped from %x (epoch=%d seq=%d)", mac, msg.EpochNum, msg.SeqNum)
+			slog.Warn("Replayed message dropped", "origin", fmt.Sprintf("%x", mac), "epoch", msg.EpochNum, "seq", msg.SeqNum)
 			return nil
 		}
 	}
 
 	// Log the message to Kafka
 	if err := ms.logMessageToKafka(msg, "incoming"); err != nil {
-		log.Printf("Failed to log incoming message to Kafka: %v", err)
+		slog.Warn("Failed to log incoming message to Kafka", "error", err)
 	}
 
 	switch msg.MessageType {
@@ -284,10 +278,10 @@ func (ms *MeshServer) handleMessage(msg *MeshMessage) error {
 	case MessageTypeJoinAck:
 		// JOIN_ACK originates from master→node; server shouldn't receive it normally.
 		// Log and ignore.
-		log.Printf("[MSG] Unexpected JOIN_ACK received from %x — ignoring", msg.OriginMacAddress)
+		slog.Warn("Unexpected JOIN_ACK received — ignoring", "origin", fmt.Sprintf("%x", msg.OriginMacAddress))
 		return nil
 	default:
-		log.Printf("Unknown message type: %d", msg.MessageType)
+		slog.Warn("Unknown message type", "type", msg.MessageType)
 	}
 
 	return nil
@@ -301,10 +295,7 @@ func (ms *MeshServer) handleAdapterData(msg *MeshMessage) error {
 	case AdapterTypePIR:
 		return ms.handlePIRData(msg)
 	default:
-		log.Printf("Received adapter data - Type: %s, Origin: %s, Data: %x",
-			GetAdapterTypeName(msg.DataType),
-			macToString(msg.OriginMacAddress),
-			msg.Data)
+		slog.Debug("Received adapter data", "type", GetAdapterTypeName(msg.DataType), "origin", macToString(msg.OriginMacAddress), "data", fmt.Sprintf("%x", msg.Data))
 	}
 
 	return nil
@@ -321,7 +312,7 @@ func (ms *MeshServer) handleSerialData(msg *MeshMessage) error {
 	case OpHealthReport:
 		return ms.handleHealthReport(msg)
 	default:
-		log.Printf("Unknown serial opcode: 0x%02x", opcode)
+		slog.Warn("Unknown serial opcode", "opcode", fmt.Sprintf("0x%02x", opcode))
 	}
 
 	return nil
@@ -342,11 +333,7 @@ func (ms *MeshServer) handleHealthReport(msg *MeshMessage) error {
 		healthReport.HopCount,
 	)
 
-	log.Printf("Health report from %s: Type=%s, Uptime=%ds, Hops=%d",
-		macToString(healthReport.MAC),
-		GetAdapterTypeName(healthReport.AdapterType),
-		healthReport.Uptime,
-		healthReport.HopCount)
+	slog.Info("Health report", "mac", macToString(healthReport.MAC), "adapterType", GetAdapterTypeName(healthReport.AdapterType), "uptime", healthReport.Uptime, "hops", healthReport.HopCount)
 
 	return nil
 }
@@ -366,17 +353,17 @@ func (ms *MeshServer) handleEnrollmentRequest(msg *MeshMessage) error {
 	copy(pubKey[:], msg.PublicKey[:32])
 
 	macStr := fmt.Sprintf("%x", mac)
-	log.Printf("[AUTH] Enrollment request from %s (pubkey: %x...)", macStr, pubKey[:4])
+	slog.Info("Enrollment request received", "mac", macStr, "pubkeyPrefix", fmt.Sprintf("%x", pubKey[:4]))
 
 	if err := ms.authRegistry.AddPending(mac, pubKey); err != nil {
-		log.Printf("[AUTH] Failed to add pending enrollment for %s: %v", macStr, err)
+		slog.Warn("Failed to add pending enrollment", "mac", macStr, "error", err)
 		return err
 	}
 
 	// Persist immediately so the admin sees it even if the server restarts
 	if ms.authPath != "" {
 		if err := ms.authRegistry.Persist(ms.authPath); err != nil {
-			log.Printf("[AUTH] Failed to persist after enrollment request: %v", err)
+			slog.Warn("Failed to persist after enrollment request", "error", err)
 		}
 	}
 
@@ -397,12 +384,10 @@ func (ms *MeshServer) handleEnrollmentRequest(msg *MeshMessage) error {
 // handlePIRData processes PIR sensor data
 func (ms *MeshServer) handlePIRData(msg *MeshMessage) error {
 	if ms.eventStore == nil {
-		log.Printf("[PIR] eventStore not configured, dropping PIR event")
+		slog.Warn("eventStore not configured, dropping PIR event")
 		return nil
 	}
-	log.Printf("PIR motion detected from %s (hops: %d)",
-		macToString(msg.OriginMacAddress),
-		msg.HopCount)
+	slog.Info("PIR motion detected", "mac", macToString(msg.OriginMacAddress), "hops", msg.HopCount)
 
 	// Log PIR event to Kafka with more specific topic
 	pirEvent := map[string]interface{}{
@@ -415,11 +400,11 @@ func (ms *MeshServer) handlePIRData(msg *MeshMessage) error {
 
 	eventJSON, err := json.Marshal(pirEvent)
 	if err != nil {
-		log.Printf("[PIR] Failed to marshal PIR event: %v", err)
+		slog.Error("Failed to marshal PIR event", "error", err)
 		return err
 	}
 	if err := ms.eventStore.WriteMessage(string(eventJSON), "motion-trigger"); err != nil {
-		log.Printf("Failed to log PIR event to Kafka: %v", err)
+		slog.Warn("Failed to log PIR event to Kafka", "error", err)
 	}
 
 	return nil
@@ -427,7 +412,7 @@ func (ms *MeshServer) handlePIRData(msg *MeshMessage) error {
 
 // handleMasterBeacon processes master beacon messages
 func (ms *MeshServer) handleMasterBeacon(msg *MeshMessage) error {
-	log.Printf("Master beacon from %s", macToString(msg.OriginMacAddress))
+	slog.Debug("Master beacon received", "origin", macToString(msg.OriginMacAddress))
 	return nil
 }
 
@@ -462,12 +447,12 @@ func (ms *MeshServer) RejectEnrollment(macStr string) error {
 			// PublicKey intentionally absent — rejection signal
 		}
 		if err := ms.serialComm.WriteFrame(rejectMsg); err != nil {
-			log.Printf("[AUTH] Warning: failed to send rejection frame for %s: %v", macStr, err)
+			slog.Warn("Failed to send rejection frame", "mac", macStr, "error", err)
 			// best-effort; do not block the rejection
 		}
 	}
 
-	log.Printf("[AUTH] Enrollment rejected: %s", macStr)
+	slog.Info("Enrollment rejected", "mac", macStr)
 	if ms.authPath != "" {
 		return ms.authRegistry.Persist(ms.authPath)
 	}
@@ -493,20 +478,18 @@ func (ms *MeshServer) SendMessage(msg *MeshMessage) error {
 		return fmt.Errorf("mesh server is not running")
 	}
 
-	log.Printf("[SEND_MESSAGE] Attempting to send message - Type: %d, DataType: %d, Origin: %s, Target: %s",
-		msg.MessageType, msg.DataType, macToString(msg.OriginMacAddress), macToString(msg.TargetMacAddress))
+	slog.Debug("Sending message", "type", msg.MessageType, "dataType", msg.DataType)
 
 	// Log the outgoing message
 	if err := ms.logMessageToKafka(msg, "outgoing"); err != nil {
-		log.Printf("Failed to log outgoing message to Kafka: %v", err)
+		slog.Warn("Failed to log outgoing message to Kafka", "error", err)
 	}
 
 	if err := ms.serialComm.WriteFrame(msg); err != nil {
-		log.Printf("[SEND_MESSAGE] Failed to send message: %v", err)
+		slog.Error("Failed to send message", "error", err)
 		return err
 	}
 
-	log.Printf("[SEND_MESSAGE] Message sent successfully via serial port")
 	return nil
 }
 
@@ -517,9 +500,7 @@ func (ms *MeshServer) ConfigureNode(targetMAC []byte, adapterType int32) error {
 		return fmt.Errorf("failed to build config message: %w", err)
 	}
 
-	log.Printf("Configuring node %s to adapter type %s",
-		macToString(targetMAC),
-		GetAdapterTypeName(adapterType))
+	slog.Info("Configuring node", "mac", macToString(targetMAC), "adapterType", GetAdapterTypeName(adapterType))
 
 	return ms.SendMessage(msg)
 }
@@ -531,8 +512,7 @@ func (ms *MeshServer) ConfigureAllNodes(adapterType int32) error {
 		return fmt.Errorf("failed to build broadcast config message: %w", err)
 	}
 
-	log.Printf("Configuring all nodes to adapter type %s",
-		GetAdapterTypeName(adapterType))
+	slog.Info("Configuring all nodes", "adapterType", GetAdapterTypeName(adapterType))
 
 	return ms.SendMessage(msg)
 }
@@ -541,7 +521,7 @@ func (ms *MeshServer) ConfigureAllNodes(adapterType int32) error {
 func (ms *MeshServer) RequestHealthReports() error {
 	msg := ms.messageBuilder.BuildHealthRequestMessage()
 
-	log.Printf("Requesting health reports from all nodes")
+	slog.Debug("Requesting health reports from all nodes")
 	return ms.SendMessage(msg)
 }
 
@@ -552,9 +532,7 @@ func (ms *MeshServer) BroadcastData(dataType int32, data []byte) error {
 		return fmt.Errorf("failed to build broadcast message: %w", err)
 	}
 
-	log.Printf("Broadcasting data: Type=%s, Length=%d",
-		GetAdapterTypeName(dataType),
-		len(data))
+	slog.Debug("Broadcasting data", "type", GetAdapterTypeName(dataType), "length", len(data))
 
 	return ms.SendMessage(msg)
 }
@@ -593,7 +571,7 @@ func (ms *MeshServer) SetTxPowerPreset(preset uint8) error {
 	ms.mu.Lock()
 	ms.currentTxPreset = preset
 	ms.mu.Unlock()
-	log.Printf("[TX_POWER] Preset set to %s (%d)", txPowerPresetNames[preset], preset)
+	slog.Info("TX power preset set", "name", txPowerPresetNames[preset], "preset", preset)
 	return nil
 }
 

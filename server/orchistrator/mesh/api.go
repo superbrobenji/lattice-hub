@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
+	"log/slog"
 	"net/http"
 	"time"
 
@@ -415,7 +415,7 @@ func StartAPIServer(meshServer *MeshServer, port int, apiKey string, corsOrigins
 
 	errCh := make(chan error, 1)
 	go func() {
-		log.Printf("Starting API server on port %d", port)
+		slog.Info("API server starting", "port", port)
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			errCh <- err
 		}

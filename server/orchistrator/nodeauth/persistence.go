@@ -3,7 +3,7 @@ package nodeauth
 import (
 	"encoding/hex"
 	"encoding/json"
-	"log"
+	"log/slog"
 	"os"
 	"time"
 )
@@ -44,7 +44,7 @@ func (r *Registry) Persist(path string) error {
 func (r *Registry) Load(path string) error {
 	data, err := os.ReadFile(path)
 	if os.IsNotExist(err) {
-		log.Printf("[nodeauth] No registry file at %s — starting fresh", path)
+		slog.Info("No auth registry file — starting fresh", "path", path)
 		return nil
 	}
 	if err != nil {
@@ -61,12 +61,12 @@ func (r *Registry) Load(path string) error {
 	for _, e := range entries {
 		mac, err := ParseMAC(e.MAC)
 		if err != nil {
-			log.Printf("[nodeauth] Skipping invalid MAC %s: %v", e.MAC, err)
+			slog.Warn("Skipping invalid MAC in auth registry", "mac", e.MAC, "error", err)
 			continue
 		}
 		pubKey, err := ParsePublicKey(e.PublicKey)
 		if err != nil {
-			log.Printf("[nodeauth] Skipping invalid pubkey for %s: %v", e.MAC, err)
+			slog.Warn("Skipping invalid public key in auth registry", "mac", e.MAC, "error", err)
 			continue
 		}
 		node := &NodeAuth{
@@ -79,7 +79,7 @@ func (r *Registry) Load(path string) error {
 		}
 		r.nodes[e.MAC] = node
 	}
-	log.Printf("[nodeauth] Loaded %d node entries from %s", len(r.nodes), path)
+	slog.Info("Auth registry loaded", "count", len(r.nodes), "path", path)
 	return nil
 }
 
@@ -91,10 +91,12 @@ func (r *Registry) PersistLoop(path string, interval time.Duration, stop <-chan 
 		select {
 		case <-t.C:
 			if err := r.Persist(path); err != nil {
-				log.Printf("[nodeauth] Failed to persist registry: %v", err)
+				slog.Warn("Auth registry persist failed", "error", err)
 			}
 		case <-stop:
-			_ = r.Persist(path) // Final save on shutdown
+			if err := r.Persist(path); err != nil {
+				slog.Warn("Auth registry final persist failed", "error", err)
+			}
 			return
 		}
 	}
