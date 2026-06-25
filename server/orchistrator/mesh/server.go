@@ -201,8 +201,8 @@ func (ms *MeshServer) messageProcessor() {
 // handleMessage processes a received mesh message
 func (ms *MeshServer) handleMessage(msg *MeshMessage) error {
 	// Proto version check — version 0 means legacy (pre-security) node; allow it.
-	// Any version other than 0 or 1 is unknown and must be dropped.
-	if msg.ProtoVersion != 0 && msg.ProtoVersion != 1 {
+	// Any protoVersion > 0 that is not 1 is an unknown future version; drop it.
+	if msg.ProtoVersion > 0 && msg.ProtoVersion != 1 {
 		log.Printf("[MSG] Unsupported proto version %d from %x — dropping", msg.ProtoVersion, msg.OriginMacAddress)
 		return nil
 	}
@@ -227,6 +227,13 @@ func (ms *MeshServer) handleMessage(msg *MeshMessage) error {
 		return ms.handleAdapterData(msg)
 	case MessageTypeMasterBeacon:
 		return ms.handleMasterBeacon(msg)
+	case MessageTypeEnrollment:
+		return ms.handleEnrollmentRequest(msg)
+	case MessageTypeJoinAck:
+		// JOIN_ACK originates from master→node; server shouldn't receive it normally.
+		// Log and ignore.
+		log.Printf("[MSG] Unexpected JOIN_ACK received from %x — ignoring", msg.OriginMacAddress)
+		return nil
 	default:
 		log.Printf("Unknown message type: %d", msg.MessageType)
 	}
@@ -261,8 +268,6 @@ func (ms *MeshServer) handleSerialData(msg *MeshMessage) error {
 	switch opcode {
 	case OpHealthReport:
 		return ms.handleHealthReport(msg)
-	case OpEnrollmentReq:
-		return ms.handleEnrollmentRequest(msg.Data)
 	default:
 		log.Printf("Unknown serial opcode: 0x%02x", opcode)
 	}
@@ -295,16 +300,18 @@ func (ms *MeshServer) handleHealthReport(msg *MeshMessage) error {
 }
 
 // handleEnrollmentRequest processes an enrollment request from a new node.
-// Format: [0xC0][6B mac][32B pubkey] = 39 bytes total.
-func (ms *MeshServer) handleEnrollmentRequest(data []byte) error {
-	// data[0] is the opcode (0xC0); mac starts at data[1]
-	if len(data) < 39 {
-		return fmt.Errorf("enrollment request too short: %d bytes", len(data))
+// The MAC and public key are carried in the MeshMessage fields directly.
+func (ms *MeshServer) handleEnrollmentRequest(msg *MeshMessage) error {
+	if len(msg.OriginMacAddress) < 6 {
+		return fmt.Errorf("enrollment request missing origin MAC")
+	}
+	if len(msg.PublicKey) != 32 {
+		return fmt.Errorf("enrollment request has invalid public key length: %d", len(msg.PublicKey))
 	}
 	var mac [6]byte
-	copy(mac[:], data[1:7])
+	copy(mac[:], msg.OriginMacAddress[:6])
 	var pubKey [32]byte
-	copy(pubKey[:], data[7:39])
+	copy(pubKey[:], msg.PublicKey[:32])
 
 	macStr := fmt.Sprintf("%x", mac)
 	log.Printf("[AUTH] Enrollment request from %s (pubkey: %x...)", macStr, pubKey[:4])
@@ -350,7 +357,11 @@ func (ms *MeshServer) handlePIRData(msg *MeshMessage) error {
 		"data":      msg.Data,
 	}
 
-	eventJSON, _ := json.Marshal(pirEvent)
+	eventJSON, err := json.Marshal(pirEvent)
+	if err != nil {
+		log.Printf("[PIR] Failed to marshal PIR event: %v", err)
+		return err
+	}
 	if err := ms.eventStore.WriteMessage(string(eventJSON), "motion-trigger"); err != nil {
 		log.Printf("Failed to log PIR event to Kafka: %v", err)
 	}
@@ -364,24 +375,19 @@ func (ms *MeshServer) handleMasterBeacon(msg *MeshMessage) error {
 	return nil
 }
 
-// ApproveEnrollment approves a pending node and sends OP_ENROLLMENT_APPROVE to master via serial.
+// ApproveEnrollment approves a pending node and sends a JOIN_ACK MeshMessage to master via serial.
 func (ms *MeshServer) ApproveEnrollment(macStr string) error {
 	node, err := ms.authRegistry.Approve(macStr)
 	if err != nil {
 		return err
 	}
 
-	// Build OP_ENROLLMENT_APPROVE frame: [0xC1][6B mac][32B pubkey] = 39 bytes payload
-	frame := make([]byte, 39)
-	frame[0] = OpEnrollmentApprove
-	copy(frame[1:7], node.MAC[:])
-	copy(frame[7:39], node.PublicKey[:])
-
-	// Prepend 2-byte LE length header
-	header := []byte{byte(len(frame) & 0xFF), byte((len(frame) >> 8) & 0xFF)}
-	combined := append(header, frame...)
-
-	if err := ms.serialComm.WriteRaw(combined); err != nil {
+	approvalMsg := &MeshMessage{
+		MessageType:      MessageTypeJoinAck,
+		OriginMacAddress: node.MAC[:],
+		PublicKey:        node.PublicKey[:],
+	}
+	if err := ms.serialComm.WriteFrame(approvalMsg); err != nil {
 		return fmt.Errorf("failed to send enrollment approval: %w", err)
 	}
 
@@ -394,11 +400,32 @@ func (ms *MeshServer) ApproveEnrollment(macStr string) error {
 	return nil
 }
 
-// RejectEnrollment rejects a pending enrollment request.
+// RejectEnrollment rejects a pending enrollment request and notifies the master.
+// A JOIN_ACK with empty PublicKey signals rejection to the firmware.
 func (ms *MeshServer) RejectEnrollment(macStr string) error {
+	// Get the node MAC before rejecting (Reject only sets status; node remains in registry).
+	mac, err := nodeauth.ParseMAC(macStr)
+	if err != nil {
+		return fmt.Errorf("invalid MAC string: %w", err)
+	}
+
 	if err := ms.authRegistry.Reject(macStr); err != nil {
 		return err
 	}
+
+	// Send rejection frame: JOIN_ACK with empty PublicKey = rejection signal to firmware.
+	if ms.serialComm != nil {
+		rejectMsg := &MeshMessage{
+			MessageType:      MessageTypeJoinAck,
+			OriginMacAddress: mac[:],
+			// PublicKey intentionally absent — rejection signal
+		}
+		if err := ms.serialComm.WriteFrame(rejectMsg); err != nil {
+			log.Printf("[AUTH] Warning: failed to send rejection frame for %s: %v", macStr, err)
+			// best-effort; do not block the rejection
+		}
+	}
+
 	log.Printf("[AUTH] Enrollment rejected: %s", macStr)
 	if ms.authPath != "" {
 		return ms.authRegistry.Persist(ms.authPath)
