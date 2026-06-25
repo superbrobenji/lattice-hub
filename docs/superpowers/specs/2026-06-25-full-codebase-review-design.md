@@ -16,7 +16,7 @@ Bring the motionSensorServer codebase to industry-standard quality across securi
 ## Architecture
 
 Three layers touched in every phase:
-- **Go orchestrator** (`server/orchistrator/`) — mesh server, event store, HTTP API
+- **Go orchestrator** (`server/orchestrator/`) — mesh server, event store, HTTP API
 - **React dashboard** (`server/dashboard/`) — React Router v7 frontend
 - **Docker infrastructure** (`server/docker-compose.yml`, Dockerfiles)
 
@@ -137,9 +137,9 @@ In `handlePIRData`, replace `eventJSON, _ := json.Marshal(pirEvent)` with proper
 
 ## Phase 4 — Quality
 
-### 4.1 Rename orchistrator → orchestrator
+### 4.1 Rename orchestrator → orchestrator
 
-Rename directory `server/orchistrator/` to `server/orchestrator/`. Update:
+Rename directory `server/orchestrator/` to `server/orchestrator/`. Update:
 - `docker-compose.yml` service name and build path
 - All Dockerfiles
 - `go.mod` module path
@@ -168,7 +168,7 @@ Update all imports.
 
 ### 4.6 Remove committed artifacts
 
-`server/orchistrator/motionServer.exe` — remove from git, add `*.exe` to `.gitignore`
+`server/orchestrator/motionServer.exe` — remove from git, add `*.exe` to `.gitignore`
 `server/dashboard/react-router-0.cpuprofile` — remove from git, add `*.cpuprofile` to `.gitignore`
 
 ### 4.7 Dashboard Dockerfile HEALTHCHECK
