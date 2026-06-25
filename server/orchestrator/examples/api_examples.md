@@ -326,7 +326,7 @@ print(f"Total nodes: {len(nodes['data'])}")
 Enable verbose logging by checking Docker logs:
 
 ```bash
-docker-compose logs -f orchistrator
+docker-compose logs -f orchestrator
 ```
 
 Monitor Kafka messages for debugging:

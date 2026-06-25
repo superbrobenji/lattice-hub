@@ -65,7 +65,7 @@ I've successfully implemented a comprehensive Planetopia mesh server according t
 ## 📁 File Structure
 
 ```
-server/orchistrator/
+server/orchestrator/
 ├── main.go                     # Main application entry point
 ├── Dockerfile                  # Container build configuration
 ├── README.md                   # Comprehensive documentation
@@ -116,7 +116,7 @@ docker-compose up -d
 
 ### Option 2: Direct Build
 ```bash
-cd server/orchistrator
+cd server/orchestrator
 go mod tidy
 go build -o mesh-server .
 ./mesh-server -serial=/dev/ttyUSB0
@@ -124,7 +124,7 @@ go build -o mesh-server .
 
 ### Option 3: No Kafka Build (Testing)
 ```bash
-cd server/orchistrator
+cd server/orchestrator
 ./build_without_kafka.sh   # Linux
 # or
 ./build_without_kafka.sh   # Linux
@@ -204,7 +204,7 @@ sudo usermod -a -G dialout $USER
 
 Run the comprehensive test suite:
 ```bash
-cd server/orchistrator
+cd server/orchestrator
 go test ./mesh -v
 ```
 

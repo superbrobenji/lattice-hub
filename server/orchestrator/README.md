@@ -126,7 +126,7 @@ curl http://localhost:8080/status
 docker-compose up -d
 
 # View logs
-docker-compose logs -f orchistrator
+docker-compose logs -f orchestrator
 
 # Stop services
 docker-compose down
@@ -192,7 +192,7 @@ The server publishes to these Kafka topics:
 ### Kafka Connection Issues
 
 - Verify Kafka is running: `docker-compose ps kafka`
-- Check network connectivity: `docker-compose exec orchistrator ping kafka`
+- Check network connectivity: `docker-compose exec orchestrator ping kafka`
 - Review Kafka logs: `docker-compose logs kafka`
 
 ## Protocol Details

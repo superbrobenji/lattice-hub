@@ -6,7 +6,6 @@
 *.cpuprofile
 
 # Go build output
-server/orchistrator/main
 server/orchestrator/main
 
 # Node
@@ -18,5 +17,4 @@ server/.env
 .env
 
 # Runtime data
-server/orchistrator/data/
 server/orchestrator/data/
