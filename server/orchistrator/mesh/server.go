@@ -41,6 +41,10 @@ type MeshServer struct {
 	authPath     string        // Path to persist registry JSON
 	stopPersist  chan struct{}
 
+	// Node registry persistence
+	nodeRegistryPath string
+	stopNodePersist  chan struct{}
+
 	// Configuration
 	serialPort    string
 	baudRate      int
@@ -64,6 +68,7 @@ type MeshServerConfig struct {
 	HealthTimeout    time.Duration
 	EventStore       EventStore.EventStoreInterface
 	AuthRegistryPath string // e.g. "data/nodeauth.json"
+	NodeRegistryPath string // e.g. "data/nodes.json"
 }
 
 // NewMeshServer creates a new mesh server
@@ -77,19 +82,28 @@ func NewMeshServer(config MeshServerConfig) *MeshServer {
 		}
 	}
 
+	nodeRegistry := NewNodeRegistry()
+	if config.NodeRegistryPath != "" {
+		if err := nodeRegistry.Load(config.NodeRegistryPath); err != nil {
+			log.Printf("[MeshServer] Failed to load node registry: %v", err)
+		}
+	}
+
 	return &MeshServer{
-		nodeRegistry:   NewNodeRegistry(),
-		messageBuilder: NewMessageBuilder(),
-		eventStore:     config.EventStore,
-		authRegistry:   registry,
-		replayCache:    nodeauth.NewReplayCache(64),
-		authPath:       config.AuthRegistryPath,
-		stopPersist:    make(chan struct{}),
-		serialPort:     config.SerialPort,
-		baudRate:       config.BaudRate,
-		healthTimeout:  config.HealthTimeout,
-		ctx:            ctx,
-		cancel:         cancel,
+		nodeRegistry:     nodeRegistry,
+		messageBuilder:   NewMessageBuilder(),
+		eventStore:       config.EventStore,
+		authRegistry:     registry,
+		replayCache:      nodeauth.NewReplayCache(64),
+		authPath:         config.AuthRegistryPath,
+		stopPersist:      make(chan struct{}),
+		nodeRegistryPath: config.NodeRegistryPath,
+		stopNodePersist:  make(chan struct{}),
+		serialPort:       config.SerialPort,
+		baudRate:         config.BaudRate,
+		healthTimeout:    config.HealthTimeout,
+		ctx:              ctx,
+		cancel:           cancel,
 	}
 }
 
@@ -127,6 +141,15 @@ func (ms *MeshServer) Start() error {
 		go ms.authRegistry.PersistLoop(ms.authPath, 30*time.Second, ms.stopPersist)
 	}
 
+	// Start node registry persistence loop
+	if ms.nodeRegistryPath != "" {
+		ms.wg.Add(1)
+		go func() {
+			defer ms.wg.Done()
+			ms.nodeRegistry.PersistLoop(ms.nodeRegistryPath, 60*time.Second, ms.stopNodePersist)
+		}()
+	}
+
 	log.Printf("Mesh server started on serial port %s at %d baud", ms.serialPort, ms.baudRate)
 	return nil
 }
@@ -143,8 +166,11 @@ func (ms *MeshServer) Stop() error {
 	ms.cancel()
 	ms.running = false
 
-	// Stop persistence loop (final save happens inside PersistLoop)
+	// Stop persistence loops (final save happens inside each PersistLoop)
 	close(ms.stopPersist)
+	if ms.nodeRegistryPath != "" {
+		close(ms.stopNodePersist)
+	}
 
 	if ms.serialComm != nil {
 		ms.serialComm.Close()

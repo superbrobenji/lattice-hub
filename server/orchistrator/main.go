@@ -16,7 +16,8 @@ import (
 func main() {
 	broker := envOrDefault("KAFKA_BROKER", "kafka:9092")
 	groupId := envOrDefault("KAFKA_GROUP_ID", "1")
-	nodeRegistryPath := envOrDefault("NODE_REGISTRY_PATH", "data/nodeauth.json")
+	authRegistryPath := envOrDefault("AUTH_REGISTRY_PATH", "data/nodeauth.json")
+	nodeRegistryPath := envOrDefault("NODE_REGISTRY_PATH", "data/nodes.json")
 	logLevel := envOrDefault("LOG_LEVEL", "INFO")
 	_ = logLevel // placeholder: will be wired to slog in a future task
 
@@ -24,7 +25,8 @@ func main() {
 	serialPort := flag.String("serial", envOrDefault("SERIAL_PORT", "/dev/ttyUSB0"), "Serial port for mesh communication")
 	baudRate := flag.Int("baud", envOrDefaultInt("BAUD_RATE", 115200), "Serial baud rate")
 	apiPort := flag.Int("port", envOrDefaultInt("API_PORT", 8080), "HTTP API port")
-	authRegistry := flag.String("auth-registry", nodeRegistryPath, "Path to node auth registry JSON")
+	authRegistry := flag.String("auth-registry", authRegistryPath, "Path to node auth registry JSON")
+	nodeRegistry := flag.String("node-registry", nodeRegistryPath, "Path to node registry JSON")
 	txPowerPreset := flag.Uint("tx-power", 2, "TX power preset: 0=short_range, 1=indoor, 2=outdoor")
 	flag.Parse()
 
@@ -72,6 +74,7 @@ func main() {
 		HealthTimeout:    30 * time.Second,
 		EventStore:       eventStore,
 		AuthRegistryPath: *authRegistry,
+		NodeRegistryPath: *nodeRegistry,
 	}
 
 	meshServer := mesh.NewMeshServer(meshConfig)
