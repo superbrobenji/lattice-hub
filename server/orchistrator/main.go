@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -100,9 +101,17 @@ func main() {
 		log.Printf("Warning: API_KEY is not set — HTTP API will run without authentication")
 	}
 
+	// Read allowed CORS origins from environment
+	var allowedOrigins []string
+	for _, o := range strings.Split(os.Getenv("ALLOWED_ORIGINS"), ",") {
+		if o != "" {
+			allowedOrigins = append(allowedOrigins, o)
+		}
+	}
+
 	// Start HTTP API server
 	go func() {
-		if err := mesh.StartAPIServer(meshServer, *apiPort, apiKey); err != nil {
+		if err := mesh.StartAPIServer(meshServer, *apiPort, apiKey, allowedOrigins); err != nil {
 			log.Printf("API server error: %v", err)
 		}
 	}()
