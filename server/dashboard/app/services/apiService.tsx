@@ -150,7 +150,7 @@ export async function dev_ApiService<ApiResponse>(
 
 export async function getPendingEnrollments(): Promise<IEnrollment[]> {
   const res = await fetch(`${HOST_URL}/api/enrollments/pending`, {
-    headers: { ...authHeaders() },
+    headers: authHeaders(),
   });
   if (!res.ok) throw new Error("Failed to fetch pending enrollments");
   const body = await res.json();
@@ -159,7 +159,7 @@ export async function getPendingEnrollments(): Promise<IEnrollment[]> {
 
 export async function getAllEnrollments(): Promise<IEnrollment[]> {
   const res = await fetch(`${HOST_URL}/api/enrollments`, {
-    headers: { ...authHeaders() },
+    headers: authHeaders(),
   });
   if (!res.ok) throw new Error("Failed to fetch enrollments");
   const body = await res.json();
@@ -169,7 +169,7 @@ export async function getAllEnrollments(): Promise<IEnrollment[]> {
 export async function approveEnrollment(mac: string): Promise<void> {
   const res = await fetch(`${HOST_URL}/api/enrollments/${mac}/approve`, {
     method: "POST",
-    headers: { ...authHeaders() },
+    headers: authHeaders(),
   });
   if (!res.ok) {
     const body = await res.json().catch(() => null);
@@ -184,7 +184,7 @@ export async function approveEnrollment(mac: string): Promise<void> {
 export async function rejectEnrollment(mac: string): Promise<void> {
   const res = await fetch(`${HOST_URL}/api/enrollments/${mac}/reject`, {
     method: "POST",
-    headers: { ...authHeaders() },
+    headers: authHeaders(),
   });
   if (!res.ok) {
     const body = await res.json().catch(() => null);
@@ -200,7 +200,7 @@ export async function rejectEnrollment(mac: string): Promise<void> {
 
 export async function getTxPower(): Promise<ITxPowerStatus> {
   const res = await fetch(`${HOST_URL}/api/tx-power`, {
-    headers: { ...authHeaders() },
+    headers: authHeaders(),
   });
   if (!res.ok) throw new Error("Failed to fetch TX power preset");
   const body = await res.json();
@@ -210,7 +210,7 @@ export async function getTxPower(): Promise<ITxPowerStatus> {
 export async function setTxPower(preset: number): Promise<void> {
   const res = await fetch(`${HOST_URL}/api/tx-power`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", ...authHeaders() },
+    headers: { ...authHeaders(), "Content-Type": "application/json" },
     body: JSON.stringify({ preset }),
   });
   if (!res.ok) {
