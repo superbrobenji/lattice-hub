@@ -1,6 +1,10 @@
 # Worktrees
 .worktrees/
 
+# Superpowers
+.superpowers/
+docs/superpowers/
+
 # Build artifacts
 *.exe
 *.cpuprofile
