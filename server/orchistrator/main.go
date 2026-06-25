@@ -13,17 +13,18 @@ import (
 	"github.com/superbrobenji/motionServer/mesh"
 )
 
-var (
-	broker  = "kafka:9092" // Use docker compose service name - internal port
-	groupId = "1"
-)
-
 func main() {
+	broker := envOrDefault("KAFKA_BROKER", "kafka:9092")
+	groupId := envOrDefault("KAFKA_GROUP_ID", "1")
+	nodeRegistryPath := envOrDefault("NODE_REGISTRY_PATH", "data/nodeauth.json")
+	logLevel := envOrDefault("LOG_LEVEL", "INFO")
+	_ = logLevel // placeholder: will be wired to slog in a future task
+
 	// Command line flags
-	serialPort := flag.String("serial", "/dev/ttyUSB0", "Serial port for mesh communication")
-	baudRate := flag.Int("baud", 115200, "Serial baud rate")
-	apiPort := flag.Int("port", 8080, "HTTP API port")
-	authRegistry := flag.String("auth-registry", "data/nodeauth.json", "Path to node auth registry JSON")
+	serialPort := flag.String("serial", envOrDefault("SERIAL_PORT", "/dev/ttyUSB0"), "Serial port for mesh communication")
+	baudRate := flag.Int("baud", envOrDefaultInt("BAUD_RATE", 115200), "Serial baud rate")
+	apiPort := flag.Int("port", envOrDefaultInt("API_PORT", 8080), "HTTP API port")
+	authRegistry := flag.String("auth-registry", nodeRegistryPath, "Path to node auth registry JSON")
 	txPowerPreset := flag.Uint("tx-power", 2, "TX power preset: 0=short_range, 1=indoor, 2=outdoor")
 	flag.Parse()
 
