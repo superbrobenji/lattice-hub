@@ -210,6 +210,10 @@ func (ms *MeshServer) handleMessage(msg *MeshMessage) error {
 
 	// Replay check (only for proto v1 messages with epoch/seq set)
 	if msg.ProtoVersion == 1 && msg.EpochNum > 0 {
+		if len(msg.OriginMacAddress) != 6 {
+			log.Printf("[MSG] dropping message: OriginMacAddress not 6 bytes, len=%d", len(msg.OriginMacAddress))
+			return nil
+		}
 		var mac [6]byte
 		copy(mac[:], msg.OriginMacAddress)
 		if ms.replayCache.IsDuplicate(mac, msg.EpochNum, msg.SeqNum) {
@@ -345,6 +349,10 @@ func (ms *MeshServer) handleEnrollmentRequest(msg *MeshMessage) error {
 
 // handlePIRData processes PIR sensor data
 func (ms *MeshServer) handlePIRData(msg *MeshMessage) error {
+	if ms.eventStore == nil {
+		log.Printf("[PIR] eventStore not configured, dropping PIR event")
+		return nil
+	}
 	log.Printf("PIR motion detected from %s (hops: %d)",
 		macToString(msg.OriginMacAddress),
 		msg.HopCount)
