@@ -86,6 +86,13 @@ func (api *APIServer) setupRoutes() {
 	sub.Handle("/api/v1/zones/{id}", InstrumentHandler("/api/v1/zones/{id}", http.HandlerFunc(api.v1UpdateZone))).Methods("PATCH")
 	sub.Handle("/api/v1/zones/{id}", InstrumentHandler("/api/v1/zones/{id}", http.HandlerFunc(api.v1DeleteZone))).Methods("DELETE")
 	sub.Handle("/api/v1/zones/{id}/command", InstrumentHandler("/api/v1/zones/{id}/command", http.HandlerFunc(api.v1ZoneCommand))).Methods("POST")
+
+	// /api/v1/nodes
+	sub.Handle("/api/v1/nodes", InstrumentHandler("/api/v1/nodes", http.HandlerFunc(api.v1GetNodes))).Methods("GET")
+	sub.Handle("/api/v1/nodes/{id}", InstrumentHandler("/api/v1/nodes/{id}", http.HandlerFunc(api.v1GetNode))).Methods("GET")
+	sub.Handle("/api/v1/nodes/{id}", InstrumentHandler("/api/v1/nodes/{id}", http.HandlerFunc(api.v1UpdateNode))).Methods("PATCH")
+	sub.Handle("/api/v1/nodes/{id}", InstrumentHandler("/api/v1/nodes/{id}", http.HandlerFunc(api.v1DeleteNode))).Methods("DELETE")
+	sub.Handle("/api/v1/nodes/{id}/command", InstrumentHandler("/api/v1/nodes/{id}/command", http.HandlerFunc(api.v1NodeCommand))).Methods("POST")
 }
 
 // ServeHTTP implements the http.Handler interface

@@ -586,6 +586,33 @@ func TestZoneRegistry_Load_MissingFile(t *testing.T) {
 	}
 }
 
+func TestAdapterTypeTranslation(t *testing.T) {
+	cases := []struct {
+		t int32
+		s string
+	}{
+		{AdapterTypePIR, "pir"},
+		{AdapterTypeLED, "led"},
+		{AdapterTypeSerial, "serial"},
+		{AdapterTypeUnknown, "unknown"},
+		{999, "unknown"},
+	}
+	for _, c := range cases {
+		if got := adapterTypeToString(c.t); got != c.s {
+			t.Errorf("adapterTypeToString(%d) = %q, want %q", c.t, got, c.s)
+		}
+	}
+	if v, ok := adapterTypeFromString("pir"); !ok || v != AdapterTypePIR {
+		t.Errorf("adapterTypeFromString(pir): got %d,%v", v, ok)
+	}
+	if _, ok := adapterTypeFromString("serial"); ok {
+		t.Error("serial should not be writable via type string")
+	}
+	if _, ok := adapterTypeFromString("unknown"); ok {
+		t.Error("unknown should not be writable")
+	}
+}
+
 func TestHandlePIRData_KafkaWriteError(t *testing.T) {
 	mockStore := NewMockEventStore()
 	registry := NewNodeRegistry()
