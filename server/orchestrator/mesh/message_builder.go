@@ -98,7 +98,7 @@ func (mb *MessageBuilder) ParseHealthReport(msg *MeshMessage) (*HealthReport, er
 		return nil, fmt.Errorf("insufficient data length for health report: %d", len(msg.Data))
 	}
 
-	if msg.Data[0] != OpHealthReport {
+	if msg.Data[0] != OpHealthReport && msg.Data[0] != OpNodeHealth {
 		return nil, fmt.Errorf("message is not a health report, opcode: 0x%02x", msg.Data[0])
 	}
 
@@ -129,7 +129,7 @@ type HealthReport struct {
 func (mb *MessageBuilder) IsHealthReport(msg *MeshMessage) bool {
 	return msg.DataType == AdapterTypeSerial &&
 		len(msg.Data) >= 1 &&
-		msg.Data[0] == OpHealthReport
+		(msg.Data[0] == OpHealthReport || msg.Data[0] == OpNodeHealth)
 }
 
 // IsMasterBeacon checks if a message is a master beacon

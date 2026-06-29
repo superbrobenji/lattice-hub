@@ -311,7 +311,7 @@ func (ms *MeshServer) handleSerialData(msg *MeshMessage) error {
 
 	opcode := msg.Data[0]
 	switch opcode {
-	case OpHealthReport:
+	case OpHealthReport, OpNodeHealth:
 		return ms.handleHealthReport(msg)
 	default:
 		slog.Warn("Unknown serial opcode", "opcode", fmt.Sprintf("0x%02x", opcode))
