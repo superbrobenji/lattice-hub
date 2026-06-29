@@ -19,7 +19,7 @@ func (api *APIServer) v1Status(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	primaryConnected, secondaryConnected := api.meshServer.SerialStatus()
+	primaryConnected, secondaryConnected, secondaryConfigured := api.meshServer.SerialStatus()
 
 	primaryStatus := "disconnected"
 	if primaryConnected {
@@ -27,7 +27,7 @@ func (api *APIServer) v1Status(w http.ResponseWriter, r *http.Request) {
 	}
 
 	secondaryStatus := "not_configured"
-	if api.meshServer.secondaryPort != "" || api.meshServer.secondarySerialComm != nil {
+	if secondaryConfigured {
 		if secondaryConnected {
 			secondaryStatus = "connected"
 		} else {

@@ -841,11 +841,12 @@ func (ms *MeshServer) IsRunning() bool {
 	return ms.running
 }
 
-// SerialStatus returns the connection state of primary and secondary serial ports.
-func (ms *MeshServer) SerialStatus() (primary bool, secondary bool) {
+// SerialStatus returns the connection state of primary and secondary serial ports,
+// and whether a secondary port is configured.
+func (ms *MeshServer) SerialStatus() (primary bool, secondary bool, secondaryConfigured bool) {
 	ms.mu.RLock()
 	defer ms.mu.RUnlock()
-	return ms.serialComm != nil, ms.secondaryConnected
+	return ms.serialComm != nil, ms.secondaryConnected, ms.secondaryPort != "" || ms.secondarySerialComm != nil
 }
 
 // SetTxPowerPreset sends OP_TX_POWER_SET to master via serial.
