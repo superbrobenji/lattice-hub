@@ -34,9 +34,8 @@ type MeshServer struct {
 	secondarySerialComm  *SerialComm
 	secondaryConnected   bool
 
-	frameTimeMu          sync.Mutex // protects primaryLastFrameAt / secondaryLastFrameAt
-	primaryLastFrameAt   time.Time
-	secondaryLastFrameAt time.Time
+	frameTimeMu        sync.Mutex // protects primaryLastFrameAt
+	primaryLastFrameAt time.Time
 
 	nodeRegistry   *NodeRegistry
 	messageBuilder *MessageBuilder
@@ -309,14 +308,12 @@ func (ms *MeshServer) messageProcessor(comm *SerialComm, label string) {
 				consecutiveErrors = 0
 			}
 
-			// Record frame time for failover logic
-			ms.frameTimeMu.Lock()
+			// Record primary frame time for failover logic
 			if label == "primary" {
+				ms.frameTimeMu.Lock()
 				ms.primaryLastFrameAt = time.Now()
-			} else {
-				ms.secondaryLastFrameAt = time.Now()
+				ms.frameTimeMu.Unlock()
 			}
-			ms.frameTimeMu.Unlock()
 
 			slog.Debug("Message received", "type", msg.MessageType, "dataType", msg.DataType, "origin", macToString(msg.OriginMacAddress))
 
