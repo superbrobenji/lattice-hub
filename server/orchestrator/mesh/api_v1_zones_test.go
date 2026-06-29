@@ -48,7 +48,9 @@ func TestV1Zones_CreateAndList(t *testing.T) {
 		t.Fatalf("list: %d", w.Code)
 	}
 	var resp APIResponse
-	json.NewDecoder(w.Body).Decode(&resp)
+	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
 	if !resp.Success {
 		t.Error("expected success:true")
 	}

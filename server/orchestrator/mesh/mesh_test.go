@@ -551,7 +551,9 @@ func TestZoneRegistry_Update(t *testing.T) {
 
 func TestZoneRegistry_Delete(t *testing.T) {
 	zr := NewZoneRegistry()
-	zr.Add("lobby")
+	if _, err := zr.Add("lobby"); err != nil {
+		t.Fatal(err)
+	}
 	if !zr.Delete("lobby") {
 		t.Error("Delete returned false")
 	}
@@ -566,8 +568,12 @@ func TestZoneRegistry_Delete(t *testing.T) {
 func TestZoneRegistry_PersistAndLoad(t *testing.T) {
 	path := t.TempDir() + "/zones.json"
 	zr := NewZoneRegistry()
-	zr.Add("lobby")
-	zr.Add("stage")
+	if _, err := zr.Add("lobby"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := zr.Add("stage"); err != nil {
+		t.Fatal(err)
+	}
 	if err := zr.Persist(path); err != nil {
 		t.Fatalf("Persist: %v", err)
 	}
