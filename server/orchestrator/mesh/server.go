@@ -433,7 +433,7 @@ func (ms *MeshServer) ApproveEnrollment(macStr string) error {
 	if ms.serialComm != nil {
 		ackMsg := &MeshMessage{
 			MessageType:      MessageTypeJoinAck,
-			OriginMacAddress: node.MAC[:],
+			TargetMacAddress: node.MAC[:],
 			PublicKey:        node.PublicKey[:],
 		}
 		if err := ms.serialComm.WriteFrame(ackMsg); err != nil {
@@ -580,12 +580,15 @@ func (ms *MeshServer) SetTxPowerPreset(preset uint8) error {
 		return fmt.Errorf("mesh server is not running")
 	}
 
-	// Frame: [2-byte LE length][A1][preset]
-	payload := []byte{OpTxPowerSet, preset}
-	header := []byte{byte(len(payload) & 0xFF), byte((len(payload) >> 8) & 0xFF)}
-	frame := append(header, payload...)
-
-	if err := ms.serialComm.WriteRaw(frame); err != nil {
+	payload := make([]byte, MaxDataLength)
+	payload[0] = OpTxPowerSet
+	payload[1] = preset
+	msg := &MeshMessage{
+		MessageType: MessageTypeAdapterData,
+		DataType:    AdapterTypeSerial,
+		Data:        payload,
+	}
+	if err := ms.serialComm.WriteFrame(msg); err != nil {
 		return fmt.Errorf("failed to send TX power preset: %w", err)
 	}
 
