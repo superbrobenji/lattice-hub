@@ -362,7 +362,7 @@ func (api *APIServer) approveEnrollment(w http.ResponseWriter, r *http.Request) 
 	if r.Body != nil {
 		_ = json.NewDecoder(r.Body).Decode(&req) // body is optional; ignore decode errors
 	}
-	params := ApprovalParams{NodeID: req.NodeID, Name: req.Name, Zone: req.Zone}
+	params := ApprovalParams(req)
 	if err := api.meshServer.ApproveEnrollment(mac, params); err != nil {
 		api.writeError(w, http.StatusBadRequest, err.Error())
 		return
