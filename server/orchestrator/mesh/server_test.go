@@ -87,6 +87,9 @@ func TestHandleNodeHealth_RegistersNode(t *testing.T) {
 	if node.Uptime != 60 {
 		t.Errorf("Uptime: got %d, want 60", node.Uptime)
 	}
+	if node.HopCount != 2 {
+		t.Errorf("HopCount: got %d, want 2", node.HopCount)
+	}
 }
 
 func TestHandleMessage_ProtoVersionGuard(t *testing.T) {
