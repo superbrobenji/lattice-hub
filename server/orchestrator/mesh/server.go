@@ -152,6 +152,9 @@ func (ms *MeshServer) Start() error {
 	ms.serialComm = NewSerialComm(port)
 	ms.running = true
 	SetSerialConnected(true)
+	ms.frameTimeMu.Lock()
+	ms.primaryLastFrameAt = time.Now()
+	ms.frameTimeMu.Unlock()
 
 	// Start message processing goroutine
 	ms.wg.Add(1)
@@ -241,7 +244,10 @@ func (ms *MeshServer) Stop() error {
 // When a secondary port is configured, switches to secondary if primary has
 // been silent for more than 75 seconds.
 func (ms *MeshServer) activeOutboundComm() *SerialComm {
-	if ms.secondarySerialComm == nil {
+	ms.mu.RLock()
+	secondary := ms.secondarySerialComm
+	ms.mu.RUnlock()
+	if secondary == nil {
 		return ms.serialComm
 	}
 	ms.frameTimeMu.Lock()
@@ -249,7 +255,7 @@ func (ms *MeshServer) activeOutboundComm() *SerialComm {
 	ms.frameTimeMu.Unlock()
 	const failoverThreshold = 75 * time.Second
 	if primaryAge > failoverThreshold {
-		return ms.secondarySerialComm
+		return secondary
 	}
 	return ms.serialComm
 }

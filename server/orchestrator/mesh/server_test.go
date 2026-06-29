@@ -285,7 +285,9 @@ func TestActiveOutboundComm_ReturnsPrimary_WhenPrimaryIsRecent(t *testing.T) {
 	ms.serialComm = NewSerialComm(primaryMock)
 	ms.secondarySerialComm = NewSerialComm(secondaryMock)
 	// Primary received a frame 10 seconds ago — well within the 75s threshold
+	ms.frameTimeMu.Lock()
 	ms.primaryLastFrameAt = time.Now().Add(-10 * time.Second)
+	ms.frameTimeMu.Unlock()
 
 	comm := ms.activeOutboundComm()
 	if comm != ms.serialComm {
@@ -300,7 +302,9 @@ func TestActiveOutboundComm_FailsOverToSecondary_AfterPrimaryTimeout(t *testing.
 	ms.serialComm = NewSerialComm(primaryMock)
 	ms.secondarySerialComm = NewSerialComm(secondaryMock)
 	// Primary last heard 76 seconds ago — over the 75s threshold
+	ms.frameTimeMu.Lock()
 	ms.primaryLastFrameAt = time.Now().Add(-76 * time.Second)
+	ms.frameTimeMu.Unlock()
 
 	comm := ms.activeOutboundComm()
 	if comm != ms.secondarySerialComm {
