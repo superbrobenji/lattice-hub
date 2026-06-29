@@ -93,6 +93,18 @@ func (api *APIServer) setupRoutes() {
 	sub.Handle("/api/v1/nodes/{id}", InstrumentHandler("/api/v1/nodes/{id}", http.HandlerFunc(api.v1UpdateNode))).Methods("PATCH")
 	sub.Handle("/api/v1/nodes/{id}", InstrumentHandler("/api/v1/nodes/{id}", http.HandlerFunc(api.v1DeleteNode))).Methods("DELETE")
 	sub.Handle("/api/v1/nodes/{id}/command", InstrumentHandler("/api/v1/nodes/{id}/command", http.HandlerFunc(api.v1NodeCommand))).Methods("POST")
+
+	// /api/v1/events (SSE)
+	sub.Handle("/api/v1/events", InstrumentHandler("/api/v1/events", http.HandlerFunc(api.v1Events))).Methods("GET")
+
+	// /api/v1/status
+	sub.Handle("/api/v1/status", InstrumentHandler("/api/v1/status", http.HandlerFunc(api.v1Status))).Methods("GET")
+
+	// /api/v1/enrollments
+	sub.Handle("/api/v1/enrollments/pending", InstrumentHandler("/api/v1/enrollments/pending", http.HandlerFunc(api.v1GetPendingEnrollments))).Methods("GET")
+	sub.Handle("/api/v1/enrollments", InstrumentHandler("/api/v1/enrollments", http.HandlerFunc(api.v1GetAllEnrollments))).Methods("GET")
+	sub.Handle("/api/v1/enrollments/{mac}/approve", InstrumentHandler("/api/v1/enrollments/{mac}/approve", http.HandlerFunc(api.v1ApproveEnrollment))).Methods("POST")
+	sub.Handle("/api/v1/enrollments/{mac}/reject", InstrumentHandler("/api/v1/enrollments/{mac}/reject", http.HandlerFunc(api.v1RejectEnrollment))).Methods("POST")
 }
 
 // ServeHTTP implements the http.Handler interface
