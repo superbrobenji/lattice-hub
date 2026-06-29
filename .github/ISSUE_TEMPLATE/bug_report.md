@@ -3,6 +3,7 @@ name: Bug report
 about: Report a reproducible bug
 labels: bug
 ---
+<!-- SPDX-License-Identifier: GPL-3.0-or-later -->
 
 ## Describe the bug
 <!-- A clear description of what the bug is. -->

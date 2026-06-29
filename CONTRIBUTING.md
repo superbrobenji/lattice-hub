@@ -1,3 +1,5 @@
+<!-- SPDX-License-Identifier: GPL-3.0-or-later -->
+
 # Contributing to Planetopia Motion Sensor Server
 
 All contributions must pass the CI pipeline before merge. The pipeline enforces

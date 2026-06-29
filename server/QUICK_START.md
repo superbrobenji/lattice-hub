@@ -41,7 +41,7 @@ This starts:
 ## 3. Verify
 
 ```bash
-curl -H "X-API-Key: $API_KEY" http://localhost:8080/status
+curl -H "Authorization: Bearer $API_KEY" http://localhost:8080/status
 ```
 
 Expected:
@@ -52,7 +52,7 @@ Expected:
 ## 4. Start the mesh server
 
 ```bash
-curl -X POST -H "X-API-Key: $API_KEY" http://localhost:8080/server/start
+curl -X POST -H "Authorization: Bearer $API_KEY" http://localhost:8080/server/start
 ```
 
 ## USB Serial Device Setup
@@ -91,10 +91,10 @@ After connecting an ESP32 master node:
 
 ```bash
 # List enrolled nodes
-curl -H "X-API-Key: $API_KEY" http://localhost:8080/nodes
+curl -H "Authorization: Bearer $API_KEY" http://localhost:8080/nodes
 
 # Request health reports from all nodes
-curl -X POST -H "X-API-Key: $API_KEY" http://localhost:8080/health/request
+curl -X POST -H "Authorization: Bearer $API_KEY" http://localhost:8080/health/request
 ```
 
 ## Troubleshooting

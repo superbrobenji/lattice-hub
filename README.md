@@ -1,3 +1,5 @@
+<!-- SPDX-License-Identifier: GPL-3.0-or-later -->
+
 # Planetopia Motion Sensor Server
 
 [![CI](https://github.com/superbrobenji/motionSensorServer/actions/workflows/ci.yml/badge.svg)](https://github.com/superbrobenji/motionSensorServer/actions/workflows/ci.yml)
@@ -47,7 +49,7 @@ cp server/env.example server/.env
 docker compose -f server/docker-compose.yml up -d
 
 # 3. Verify
-curl http://localhost:8080/status
+curl -H "Authorization: Bearer $API_KEY" http://localhost:8080/status
 ```
 
 Expected response:

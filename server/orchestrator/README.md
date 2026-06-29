@@ -40,7 +40,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 | `SERIAL_PORT` | `/dev/ttyUSB0` | Serial port path |
 | `BAUD_RATE` | `115200` | Serial baud rate |
 | `API_PORT` | `8080` | HTTP API port |
-| `KAFKA_BROKER` | `kafka:9094` | Kafka broker address |
+| `KAFKA_BROKER` | `kafka:9092` | Kafka broker address |
 | `KAFKA_GROUP_ID` | `1` | Kafka consumer group ID |
 | `NODE_REGISTRY_PATH` | `data/nodeauth.json` | Node registry persistence file |
 | `API_KEY` | *(required)* | API authentication key — generate with `openssl rand -hex 32` |
@@ -81,25 +81,26 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 ### Authentication
 
-All endpoints require an `X-API-Key` header matching the `API_KEY` environment
-variable. Leave `API_KEY` empty only for local development without Docker.
+All endpoints require an `Authorization: Bearer` header matching the `API_KEY`
+environment variable. Leave `API_KEY` empty only for local development without
+Docker.
 
 ### Example requests
 
 ```bash
 # Server status
-curl -H "X-API-Key: $API_KEY" http://localhost:8080/status
+curl -H "Authorization: Bearer $API_KEY" http://localhost:8080/status
 
 # List nodes
-curl -H "X-API-Key: $API_KEY" http://localhost:8080/nodes
+curl -H "Authorization: Bearer $API_KEY" http://localhost:8080/nodes
 
 # Configure a node as PIR sensor (adapterType 0)
-curl -X POST -H "X-API-Key: $API_KEY" -H "Content-Type: application/json" \
+curl -X POST -H "Authorization: Bearer $API_KEY" -H "Content-Type: application/json" \
   -d '{"adapterType": 0}' \
   http://localhost:8080/nodes/aa:bb:cc:dd:ee:ff/configure
 
 # Request health reports
-curl -X POST -H "X-API-Key: $API_KEY" http://localhost:8080/health/request
+curl -X POST -H "Authorization: Bearer $API_KEY" http://localhost:8080/health/request
 ```
 
 ## Protocol

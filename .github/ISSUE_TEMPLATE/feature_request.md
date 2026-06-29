@@ -3,6 +3,7 @@ name: Feature request
 about: Suggest a new feature or improvement
 labels: enhancement
 ---
+<!-- SPDX-License-Identifier: GPL-3.0-or-later -->
 
 ## Problem
 <!-- What problem does this feature solve? -->
