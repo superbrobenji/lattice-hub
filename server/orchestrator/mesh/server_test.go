@@ -1,8 +1,10 @@
 package mesh
 
 import (
+	"bytes"
 	"encoding/binary"
 	"testing"
+	"time"
 
 	"google.golang.org/protobuf/proto"
 )
@@ -92,6 +94,106 @@ func TestHandleNodeHealth_RegistersNode(t *testing.T) {
 	}
 }
 
+func TestMeshServer_PublishesMotionEvent_OnPIRData(t *testing.T) {
+	ms := newTestMeshServer(t)
+	ch := ms.GetEventBroker().Subscribe()
+	defer ms.GetEventBroker().Unsubscribe(ch)
+
+	mac := []byte{0xDE, 0xAD, 0xBE, 0xEF, 0x00, 0x02}
+	ms.nodeRegistry.AssignNode(mac, 5, "stage-left", "stage")
+
+	data := make([]byte, MaxDataLength)
+	data[0] = byte(AdapterTypePIR)
+	copy(data[1:7], mac)
+	msg := &MeshMessage{
+		ProtoVersion:     2,
+		MessageType:      MessageTypeAdapterData,
+		DataType:         AdapterTypePIR,
+		Data:             data,
+		OriginMacAddress: mac,
+	}
+	if err := ms.handleMessage(msg); err != nil {
+		t.Fatalf("handleMessage: %v", err)
+	}
+
+	select {
+	case e := <-ch:
+		if e.Type != EventMotion {
+			t.Errorf("event type: %q, want %q", e.Type, EventMotion)
+		}
+	case <-time.After(200 * time.Millisecond):
+		t.Fatal("no motion event within 200ms")
+	}
+}
+
+func TestMeshServer_PublishesNodeOnline_OnFirstHealthReport(t *testing.T) {
+	ms := newTestMeshServer(t)
+	ch := ms.GetEventBroker().Subscribe()
+	defer ms.GetEventBroker().Unsubscribe(ch)
+
+	mac := []byte{0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0x01}
+	data := make([]byte, MaxDataLength)
+	data[0] = byte(OpHealthReport)
+	data[1] = byte(AdapterTypePIR)
+	copy(data[2:8], mac)
+	msg := &MeshMessage{
+		ProtoVersion:     2,
+		MessageType:      MessageTypeAdapterData,
+		DataType:         AdapterTypeSerial,
+		Data:             data,
+		OriginMacAddress: mac,
+	}
+	if err := ms.handleMessage(msg); err != nil {
+		t.Fatalf("handleMessage: %v", err)
+	}
+
+	var gotOnline bool
+	for {
+		select {
+		case e := <-ch:
+			if e.Type == EventNodeOnline {
+				gotOnline = true
+			}
+		case <-time.After(200 * time.Millisecond):
+			if !gotOnline {
+				t.Error("no node_online event")
+			}
+			return
+		}
+		if gotOnline {
+			return
+		}
+	}
+}
+
+func TestMeshServer_CheckOfflineNodes_PublishesOfflineEvent(t *testing.T) {
+	ms := newTestMeshServer(t)
+	ch := ms.GetEventBroker().Subscribe()
+	defer ms.GetEventBroker().Unsubscribe(ch)
+
+	mac := []byte{0xCA, 0xFE, 0xBA, 0xBE, 0x00, 0x01}
+	ms.nodeRegistry.AssignNode(mac, 3, "old-node", "lobby")
+	macStr := macToString(mac)
+
+	// mark as previously online
+	ms.mu.Lock()
+	ms.nodeOnlineState[macStr] = true
+	// set LastSeen 80s ago — exceeds 75s threshold
+	ms.nodeRegistry.nodes[macStr].LastSeen = time.Now().Add(-80 * time.Second)
+	ms.mu.Unlock()
+
+	ms.checkOfflineNodes()
+
+	select {
+	case e := <-ch:
+		if e.Type != EventNodeOffline {
+			t.Errorf("event type: %q, want %q", e.Type, EventNodeOffline)
+		}
+	case <-time.After(100 * time.Millisecond):
+		t.Fatal("no node_offline event")
+	}
+}
+
 func TestHandleMessage_ProtoVersionGuard(t *testing.T) {
 	ms := newTestMeshServer(t)
 	mac := []byte{0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF}
@@ -131,5 +233,36 @@ func TestHandleMessage_ProtoVersionGuard(t *testing.T) {
 	}
 	if _, ok := ms.GetNodeRegistry().GetNode(mac); !ok {
 		t.Error("v2 message must be processed — node should be registered after health report")
+	}
+}
+
+func TestSendNodeData_EmbedsMacInPayload(t *testing.T) {
+	ms := newTestMeshServer(t)
+	mockPort := NewMockSerialPort()
+	ms.serialComm = NewSerialComm(mockPort)
+
+	mac := []byte{0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF}
+	data := make([]byte, MaxDataLength)
+	data[0] = 0xD0 // trigger opcode
+
+	if err := ms.SendNodeData(mac, int32(AdapterTypeSerial), data); err != nil {
+		t.Fatalf("SendNodeData: %v", err)
+	}
+
+	written := mockPort.GetWrittenData()
+	if len(written) < 2 {
+		t.Fatal("no frame written")
+	}
+	length := int(binary.LittleEndian.Uint16(written[:2]))
+	var msg MeshMessage
+	if err := proto.Unmarshal(written[2:2+length], &msg); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+
+	if msg.Data[0] != 0xD0 {
+		t.Errorf("Data[0] opcode: got 0x%02X, want 0xD0", msg.Data[0])
+	}
+	if !bytes.Equal(msg.Data[1:7], mac) {
+		t.Errorf("Data[1:7] MAC: got %v, want %v", msg.Data[1:7], mac)
 	}
 }

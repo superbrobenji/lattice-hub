@@ -283,6 +283,54 @@ func TestNodeRegistry(t *testing.T) {
 			t.Errorf("NextFreeNodeID: got %d, want 3", id)
 		}
 	})
+
+	t.Run("GetNodeByID_ReturnsNode_WhenExists", func(t *testing.T) {
+		registry := NewNodeRegistry()
+		mac := []byte{0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF}
+		registry.AssignNode(mac, 7, "entrance-left", "lobby")
+		node, ok := registry.GetNodeByID(7)
+		if !ok {
+			t.Fatal("expected node, got nothing")
+		}
+		if node.NodeID != 7 {
+			t.Errorf("NodeID: %d, want 7", node.NodeID)
+		}
+		if node.Name != "entrance-left" {
+			t.Errorf("Name: %q", node.Name)
+		}
+	})
+
+	t.Run("GetNodeByID_ReturnsFalse_WhenMissing", func(t *testing.T) {
+		registry := NewNodeRegistry()
+		if _, ok := registry.GetNodeByID(99); ok {
+			t.Error("expected false for unknown ID")
+		}
+	})
+
+	t.Run("GetNodesByZone_ReturnsOnlyZoneNodes", func(t *testing.T) {
+		registry := NewNodeRegistry()
+		registry.AssignNode([]byte{0x01, 0, 0, 0, 0, 0}, 1, "a", "lobby")
+		registry.AssignNode([]byte{0x02, 0, 0, 0, 0, 0}, 2, "b", "lobby")
+		registry.AssignNode([]byte{0x03, 0, 0, 0, 0, 0}, 3, "c", "stage")
+		nodes := registry.GetNodesByZone("lobby")
+		if len(nodes) != 2 {
+			t.Errorf("len: %d, want 2", len(nodes))
+		}
+		for _, n := range nodes {
+			if n.Zone != "lobby" {
+				t.Errorf("unexpected zone %q", n.Zone)
+			}
+		}
+	})
+
+	t.Run("GetNodesByZone_ReturnsEmpty_WhenNoMatch", func(t *testing.T) {
+		registry := NewNodeRegistry()
+		registry.AssignNode([]byte{0x01, 0, 0, 0, 0, 0}, 1, "a", "lobby")
+		nodes := registry.GetNodesByZone("nowhere")
+		if len(nodes) != 0 {
+			t.Errorf("len: %d, want 0", len(nodes))
+		}
+	})
 }
 
 func TestGetOnlineNodes_ThresholdBoundary(t *testing.T) {
@@ -439,6 +487,144 @@ func TestNodeRegistryLoad_MissingFile(t *testing.T) {
 	err := registry.Load("/tmp/does-not-exist-xyzzy.json")
 	if err != nil {
 		t.Errorf("expected no error for missing file, got %v", err)
+	}
+}
+
+func TestZoneRegistry_AddAndGet(t *testing.T) {
+	zr := NewZoneRegistry()
+	zone, err := zr.Add("Main Hall")
+	if err != nil {
+		t.Fatalf("Add: %v", err)
+	}
+	if zone.ID != "main-hall" {
+		t.Errorf("ID: %q, want %q", zone.ID, "main-hall")
+	}
+	if zone.Name != "Main Hall" {
+		t.Errorf("Name: %q", zone.Name)
+	}
+}
+
+func TestZoneRegistry_Add_DuplicateReturnsError(t *testing.T) {
+	zr := NewZoneRegistry()
+	if _, err := zr.Add("lobby"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := zr.Add("lobby"); err == nil {
+		t.Error("expected error for duplicate")
+	}
+	// "Lobby" and "lobby" both map to "lobby" — also duplicate
+	if _, err := zr.Add("Lobby"); err == nil {
+		t.Error("expected error for case-variant duplicate")
+	}
+}
+
+func TestZoneRegistry_List(t *testing.T) {
+	zr := NewZoneRegistry()
+	if _, err := zr.Add("lobby"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := zr.Add("stage"); err != nil {
+		t.Fatal(err)
+	}
+	zones := zr.List()
+	if len(zones) != 2 {
+		t.Errorf("len: %d, want 2", len(zones))
+	}
+}
+
+func TestZoneRegistry_Update(t *testing.T) {
+	zr := NewZoneRegistry()
+	if _, err := zr.Add("lobby"); err != nil {
+		t.Fatal(err)
+	}
+	z, ok := zr.Update("lobby", "Lobby Area")
+	if !ok {
+		t.Fatal("Update returned false")
+	}
+	if z.Name != "Lobby Area" {
+		t.Errorf("Name: %q", z.Name)
+	}
+	if z.ID != "lobby" {
+		t.Errorf("ID changed: %q", z.ID)
+	}
+}
+
+func TestZoneRegistry_Delete(t *testing.T) {
+	zr := NewZoneRegistry()
+	if _, err := zr.Add("lobby"); err != nil {
+		t.Fatal(err)
+	}
+	if !zr.Delete("lobby") {
+		t.Error("Delete returned false")
+	}
+	if _, ok := zr.Get("lobby"); ok {
+		t.Error("zone still present after delete")
+	}
+	if zr.Delete("lobby") {
+		t.Error("second delete should return false")
+	}
+}
+
+func TestZoneRegistry_PersistAndLoad(t *testing.T) {
+	path := t.TempDir() + "/zones.json"
+	zr := NewZoneRegistry()
+	if _, err := zr.Add("lobby"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := zr.Add("stage"); err != nil {
+		t.Fatal(err)
+	}
+	if err := zr.Persist(path); err != nil {
+		t.Fatalf("Persist: %v", err)
+	}
+	zr2 := NewZoneRegistry()
+	if err := zr2.Load(path); err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	zones := zr2.List()
+	if len(zones) != 2 {
+		t.Errorf("len after load: %d, want 2", len(zones))
+	}
+}
+
+func TestZoneRegistry_Load_MissingFile(t *testing.T) {
+	zr := NewZoneRegistry()
+	err := zr.Load("/tmp/does-not-exist-zone-registry-test.json")
+	if err != nil {
+		t.Errorf("Load on missing file should be no-op, got error: %v", err)
+	}
+	if len(zr.List()) != 0 {
+		t.Error("registry should be empty after loading missing file")
+	}
+}
+
+func TestAdapterTypeTranslation(t *testing.T) {
+	cases := []struct {
+		t int32
+		s string
+	}{
+		{AdapterTypePIR, "pir"},
+		{AdapterTypeLED, "led"},
+		{AdapterTypeSerial, "serial"},
+		{AdapterTypeUnknown, "unknown"},
+		{999, "unknown"},
+	}
+	for _, c := range cases {
+		if got := adapterTypeToString(c.t); got != c.s {
+			t.Errorf("adapterTypeToString(%d) = %q, want %q", c.t, got, c.s)
+		}
+	}
+	if v, ok := adapterTypeFromString("pir"); !ok || v != AdapterTypePIR {
+		t.Errorf("adapterTypeFromString(pir): got %d,%v", v, ok)
+	}
+	if v, ok := adapterTypeFromString("led"); !ok || v != AdapterTypeLED {
+		t.Errorf("adapterTypeFromString(led): got %d,%v", v, ok)
+	}
+	if _, ok := adapterTypeFromString("serial"); ok {
+		t.Error("serial should not be writable via type string")
+	}
+	if _, ok := adapterTypeFromString("unknown"); ok {
+		t.Error("unknown should not be writable")
 	}
 }
 

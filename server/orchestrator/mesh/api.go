@@ -79,6 +79,32 @@ func (api *APIServer) setupRoutes() {
 	// TX power
 	sub.Handle("/api/tx-power", InstrumentHandler("/api/tx-power", http.HandlerFunc(api.handleGetTxPower))).Methods("GET")
 	sub.Handle("/api/tx-power", InstrumentHandler("/api/tx-power", http.HandlerFunc(api.handleSetTxPower))).Methods("POST")
+
+	// /api/v1/zones
+	sub.Handle("/api/v1/zones", InstrumentHandler("/api/v1/zones", http.HandlerFunc(api.v1GetZones))).Methods("GET")
+	sub.Handle("/api/v1/zones", InstrumentHandler("/api/v1/zones", http.HandlerFunc(api.v1CreateZone))).Methods("POST")
+	sub.Handle("/api/v1/zones/{id}", InstrumentHandler("/api/v1/zones/{id}", http.HandlerFunc(api.v1UpdateZone))).Methods("PATCH")
+	sub.Handle("/api/v1/zones/{id}", InstrumentHandler("/api/v1/zones/{id}", http.HandlerFunc(api.v1DeleteZone))).Methods("DELETE")
+	sub.Handle("/api/v1/zones/{id}/command", InstrumentHandler("/api/v1/zones/{id}/command", http.HandlerFunc(api.v1ZoneCommand))).Methods("POST")
+
+	// /api/v1/nodes
+	sub.Handle("/api/v1/nodes", InstrumentHandler("/api/v1/nodes", http.HandlerFunc(api.v1GetNodes))).Methods("GET")
+	sub.Handle("/api/v1/nodes/{id}", InstrumentHandler("/api/v1/nodes/{id}", http.HandlerFunc(api.v1GetNode))).Methods("GET")
+	sub.Handle("/api/v1/nodes/{id}", InstrumentHandler("/api/v1/nodes/{id}", http.HandlerFunc(api.v1UpdateNode))).Methods("PATCH")
+	sub.Handle("/api/v1/nodes/{id}", InstrumentHandler("/api/v1/nodes/{id}", http.HandlerFunc(api.v1DeleteNode))).Methods("DELETE")
+	sub.Handle("/api/v1/nodes/{id}/command", InstrumentHandler("/api/v1/nodes/{id}/command", http.HandlerFunc(api.v1NodeCommand))).Methods("POST")
+
+	// /api/v1/events (SSE)
+	sub.Handle("/api/v1/events", InstrumentHandler("/api/v1/events", http.HandlerFunc(api.v1Events))).Methods("GET")
+
+	// /api/v1/status
+	sub.Handle("/api/v1/status", InstrumentHandler("/api/v1/status", http.HandlerFunc(api.v1Status))).Methods("GET")
+
+	// /api/v1/enrollments
+	sub.Handle("/api/v1/enrollments/pending", InstrumentHandler("/api/v1/enrollments/pending", http.HandlerFunc(api.v1GetPendingEnrollments))).Methods("GET")
+	sub.Handle("/api/v1/enrollments", InstrumentHandler("/api/v1/enrollments", http.HandlerFunc(api.v1GetAllEnrollments))).Methods("GET")
+	sub.Handle("/api/v1/enrollments/{mac}/approve", InstrumentHandler("/api/v1/enrollments/{mac}/approve", http.HandlerFunc(api.v1ApproveEnrollment))).Methods("POST")
+	sub.Handle("/api/v1/enrollments/{mac}/reject", InstrumentHandler("/api/v1/enrollments/{mac}/reject", http.HandlerFunc(api.v1RejectEnrollment))).Methods("POST")
 }
 
 // ServeHTTP implements the http.Handler interface
@@ -350,9 +376,10 @@ func (api *APIServer) getAllEnrollments(w http.ResponseWriter, r *http.Request) 
 
 // ApprovalRequest is the optional JSON body for the approve-enrollment endpoint.
 type ApprovalRequest struct {
-	NodeID uint8  `json:"nodeId"`
-	Name   string `json:"name"`
-	Zone   string `json:"zone"`
+	NodeID         uint8  `json:"nodeId"`
+	Name           string `json:"name"`
+	Zone           string `json:"zone"`
+	AdapterTypeStr string `json:"adapterTypeStr"`
 }
 
 // approveEnrollment approves a pending node enrollment
