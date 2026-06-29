@@ -641,12 +641,16 @@ func (ms *MeshServer) GetHealthTimeout() time.Duration { return ms.healthTimeout
 
 // SendNodeData sends a serial command frame to a specific node MAC.
 func (ms *MeshServer) SendNodeData(mac []byte, dataType int32, data []byte) error {
+	if ms.serialComm == nil {
+		return fmt.Errorf("mesh server is not running")
+	}
+
 	payload := make([]byte, MaxDataLength)
 	copy(payload, data)
 	msg := &MeshMessage{
 		ProtoVersion: 2,
 		MessageType:  MessageTypeSerialCmdBroadcast,
-		DataType:     int32(dataType),
+		DataType:     dataType,
 		Data:         payload,
 	}
 	copy(msg.TargetMacAddress, mac)

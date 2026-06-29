@@ -142,8 +142,10 @@ func (nr *NodeRegistry) GetNodeByID(nodeId uint8) (*NodeInfo, bool) {
 	defer nr.mu.RUnlock()
 	for _, n := range nr.nodes {
 		if n.NodeID == nodeId {
-			copy := *n
-			return &copy, true
+			nodeCopy := *n
+			nodeCopy.MAC = make([]byte, len(n.MAC))
+			copy(nodeCopy.MAC, n.MAC)
+			return &nodeCopy, true
 		}
 	}
 	return nil, false
@@ -153,11 +155,13 @@ func (nr *NodeRegistry) GetNodeByID(nodeId uint8) (*NodeInfo, bool) {
 func (nr *NodeRegistry) GetNodesByZone(zone string) []*NodeInfo {
 	nr.mu.RLock()
 	defer nr.mu.RUnlock()
-	var result []*NodeInfo
+	result := make([]*NodeInfo, 0)
 	for _, n := range nr.nodes {
 		if n.Zone == zone {
-			copy := *n
-			result = append(result, &copy)
+			nodeCopy := *n
+			nodeCopy.MAC = make([]byte, len(n.MAC))
+			copy(nodeCopy.MAC, n.MAC)
+			result = append(result, &nodeCopy)
 		}
 	}
 	return result
