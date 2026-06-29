@@ -1,6 +1,7 @@
 package mesh
 
 import (
+	"bytes"
 	"encoding/binary"
 	"testing"
 	"time"
@@ -232,5 +233,36 @@ func TestHandleMessage_ProtoVersionGuard(t *testing.T) {
 	}
 	if _, ok := ms.GetNodeRegistry().GetNode(mac); !ok {
 		t.Error("v2 message must be processed — node should be registered after health report")
+	}
+}
+
+func TestSendNodeData_EmbedsMacInPayload(t *testing.T) {
+	ms := newTestMeshServer(t)
+	mockPort := NewMockSerialPort()
+	ms.serialComm = NewSerialComm(mockPort)
+
+	mac := []byte{0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF}
+	data := make([]byte, MaxDataLength)
+	data[0] = 0xD0 // trigger opcode
+
+	if err := ms.SendNodeData(mac, int32(AdapterTypeSerial), data); err != nil {
+		t.Fatalf("SendNodeData: %v", err)
+	}
+
+	written := mockPort.GetWrittenData()
+	if len(written) < 2 {
+		t.Fatal("no frame written")
+	}
+	length := int(binary.LittleEndian.Uint16(written[:2]))
+	var msg MeshMessage
+	if err := proto.Unmarshal(written[2:2+length], &msg); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+
+	if msg.Data[0] != 0xD0 {
+		t.Errorf("Data[0] opcode: got 0x%02X, want 0xD0", msg.Data[0])
+	}
+	if !bytes.Equal(msg.Data[1:7], mac) {
+		t.Errorf("Data[1:7] MAC: got %v, want %v", msg.Data[1:7], mac)
 	}
 }

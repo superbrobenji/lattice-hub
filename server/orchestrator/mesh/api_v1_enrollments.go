@@ -2,6 +2,8 @@ package mesh
 
 import (
 	"encoding/json"
+	"log/slog"
+	"net"
 	"net/http"
 
 	"github.com/gorilla/mux"
@@ -40,13 +42,10 @@ func (api *APIServer) v1ApproveEnrollment(w http.ResponseWriter, r *http.Request
 	}
 	if body.Type != "" {
 		if adapterType, ok := adapterTypeFromString(body.Type); ok {
-			// ApproveEnrollment has already assigned the node; look it up by MAC string
-			// nodeauth.Registry has no Get(mac) method — filter GetAll() instead
-			registry := api.meshServer.GetAuthRegistry()
-			for _, n := range registry.GetAll() {
-				if n.MACString == mac {
-					_ = api.meshServer.ConfigureNode(n.MAC[:], adapterType)
-					break
+			hwAddr, err := net.ParseMAC(mac)
+			if err == nil {
+				if configErr := api.meshServer.ConfigureNode(hwAddr, adapterType); configErr != nil {
+					slog.Warn("ConfigureNode failed after enrollment", "mac", mac, "error", configErr)
 				}
 			}
 		}
