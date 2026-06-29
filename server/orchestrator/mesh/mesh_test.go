@@ -129,6 +129,51 @@ func TestMessageBuilder(t *testing.T) {
 			t.Errorf("Expected hop count 2, got %d", report.HopCount)
 		}
 	})
+
+	t.Run("ParseHealthReport_AcceptsNodeHealth_0xB2", func(t *testing.T) {
+		data := make([]byte, MaxDataLength)
+		data[0] = OpNodeHealth // 0xB2
+		data[1] = byte(AdapterTypePIR)
+		mac := []byte{0x11, 0x22, 0x33, 0x44, 0x55, 0x66}
+		copy(data[2:8], mac)
+		data[8] = 0x1E // 30 seconds
+		data[9] = 0x00
+		data[10] = 0x00
+		data[11] = 0x00
+
+		msg := &MeshMessage{
+			MessageType: MessageTypeAdapterData,
+			DataType:    AdapterTypeSerial,
+			Data:        data,
+			HopCount:    3,
+		}
+
+		report, err := builder.ParseHealthReport(msg)
+		if err != nil {
+			t.Fatalf("Expected no error for 0xB2, got %v", err)
+		}
+		if !bytes.Equal(report.MAC, mac) {
+			t.Errorf("MAC mismatch: got %x", report.MAC)
+		}
+		if report.AdapterType != AdapterTypePIR {
+			t.Errorf("AdapterType: got %d, want %d", report.AdapterType, AdapterTypePIR)
+		}
+		if report.Uptime != 30 {
+			t.Errorf("Uptime: got %d, want 30", report.Uptime)
+		}
+		if report.HopCount != 3 {
+			t.Errorf("HopCount: got %d, want 3", report.HopCount)
+		}
+	})
+
+	t.Run("IsHealthReport_TrueFor_0xB2", func(t *testing.T) {
+		data := make([]byte, MaxDataLength)
+		data[0] = OpNodeHealth
+		msg := &MeshMessage{DataType: AdapterTypeSerial, Data: data}
+		if !builder.IsHealthReport(msg) {
+			t.Error("IsHealthReport should return true for 0xB2")
+		}
+	})
 }
 
 func TestNodeRegistry(t *testing.T) {

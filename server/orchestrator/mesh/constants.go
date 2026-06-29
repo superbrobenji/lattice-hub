@@ -23,6 +23,7 @@ const (
 	OpConfigSet    byte = 0xA0 // Set adapter type on one node or all nodes
 	OpHealthReq    byte = 0xB0 // Request health reports
 	OpHealthReport byte = 0xB1 // Node → server health status
+	OpNodeHealth   byte = 0xB2 // Non-serial node → server health status
 )
 
 // Enrollment Message Type Constants

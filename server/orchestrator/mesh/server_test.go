@@ -51,6 +51,44 @@ func TestSetTxPowerPreset_InvalidPreset_ReturnsError(t *testing.T) {
 	}
 }
 
+func TestHandleNodeHealth_RegistersNode(t *testing.T) {
+	ms := newTestMeshServer(t)
+	mac := []byte{0xDE, 0xAD, 0xBE, 0xEF, 0x00, 0x01}
+
+	data := make([]byte, MaxDataLength)
+	data[0] = byte(OpNodeHealth) // 0xB2
+	data[1] = byte(AdapterTypePIR)
+	copy(data[2:8], mac)
+	data[8] = 60 // uptime = 60s
+	data[9] = 0
+	data[10] = 0
+	data[11] = 0
+
+	msg := &MeshMessage{
+		ProtoVersion:     2,
+		MessageType:      MessageTypeAdapterData,
+		DataType:         AdapterTypeSerial,
+		Data:             data,
+		OriginMacAddress: mac,
+		HopCount:         2,
+	}
+
+	if err := ms.handleMessage(msg); err != nil {
+		t.Fatalf("handleMessage returned error: %v", err)
+	}
+
+	node, ok := ms.GetNodeRegistry().GetNode(mac)
+	if !ok {
+		t.Fatal("node not registered after 0xB2 health report")
+	}
+	if node.AdapterType != AdapterTypePIR {
+		t.Errorf("AdapterType: got %d, want %d", node.AdapterType, AdapterTypePIR)
+	}
+	if node.Uptime != 60 {
+		t.Errorf("Uptime: got %d, want 60", node.Uptime)
+	}
+}
+
 func TestHandleMessage_ProtoVersionGuard(t *testing.T) {
 	ms := newTestMeshServer(t)
 	mac := []byte{0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF}
