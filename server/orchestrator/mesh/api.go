@@ -79,6 +79,13 @@ func (api *APIServer) setupRoutes() {
 	// TX power
 	sub.Handle("/api/tx-power", InstrumentHandler("/api/tx-power", http.HandlerFunc(api.handleGetTxPower))).Methods("GET")
 	sub.Handle("/api/tx-power", InstrumentHandler("/api/tx-power", http.HandlerFunc(api.handleSetTxPower))).Methods("POST")
+
+	// /api/v1/zones
+	sub.Handle("/api/v1/zones", InstrumentHandler("/api/v1/zones", http.HandlerFunc(api.v1GetZones))).Methods("GET")
+	sub.Handle("/api/v1/zones", InstrumentHandler("/api/v1/zones", http.HandlerFunc(api.v1CreateZone))).Methods("POST")
+	sub.Handle("/api/v1/zones/{id}", InstrumentHandler("/api/v1/zones/{id}", http.HandlerFunc(api.v1UpdateZone))).Methods("PATCH")
+	sub.Handle("/api/v1/zones/{id}", InstrumentHandler("/api/v1/zones/{id}", http.HandlerFunc(api.v1DeleteZone))).Methods("DELETE")
+	sub.Handle("/api/v1/zones/{id}/command", InstrumentHandler("/api/v1/zones/{id}/command", http.HandlerFunc(api.v1ZoneCommand))).Methods("POST")
 }
 
 // ServeHTTP implements the http.Handler interface

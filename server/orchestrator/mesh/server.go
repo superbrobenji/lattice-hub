@@ -56,6 +56,10 @@ type MeshServer struct {
 	eventBroker     *EventBroker
 	nodeOnlineState map[string]bool // keyed by MACString; true = was online last check
 
+	// Zone registry
+	zoneRegistry     *ZoneRegistry
+	zoneRegistryPath string
+
 	// Runtime state
 	ctx     context.Context
 	cancel  context.CancelFunc
@@ -107,6 +111,7 @@ func NewMeshServer(config MeshServerConfig) *MeshServer {
 		healthTimeout:    config.HealthTimeout,
 		eventBroker:      NewEventBroker(),
 		nodeOnlineState:  make(map[string]bool),
+		zoneRegistry:     NewZoneRegistry(),
 		ctx:              ctx,
 		cancel:           cancel,
 	}
@@ -187,6 +192,10 @@ func (ms *MeshServer) Stop() error {
 	close(ms.stopPersist)
 	if ms.nodeRegistryPath != "" {
 		close(ms.stopNodePersist)
+	}
+
+	if ms.zoneRegistryPath != "" {
+		_ = ms.zoneRegistry.Persist(ms.zoneRegistryPath)
 	}
 
 	if ms.serialComm != nil {
@@ -638,6 +647,17 @@ func (ms *MeshServer) GetEventBroker() *EventBroker { return ms.eventBroker }
 
 // GetHealthTimeout returns the configured health timeout duration.
 func (ms *MeshServer) GetHealthTimeout() time.Duration { return ms.healthTimeout }
+
+// GetZoneRegistry returns the zone registry.
+func (ms *MeshServer) GetZoneRegistry() *ZoneRegistry { return ms.zoneRegistry }
+
+// SetZoneRegistryPath sets the persistence path and loads existing zones.
+func (ms *MeshServer) SetZoneRegistryPath(path string) {
+	ms.zoneRegistryPath = path
+	if path != "" {
+		_ = ms.zoneRegistry.Load(path)
+	}
+}
 
 // SendNodeData sends a serial command frame to a specific node MAC.
 func (ms *MeshServer) SendNodeData(mac []byte, dataType int32, data []byte) error {

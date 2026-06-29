@@ -490,6 +490,91 @@ func TestNodeRegistryLoad_MissingFile(t *testing.T) {
 	}
 }
 
+func TestZoneRegistry_AddAndGet(t *testing.T) {
+	zr := NewZoneRegistry()
+	zone, err := zr.Add("Main Hall")
+	if err != nil {
+		t.Fatalf("Add: %v", err)
+	}
+	if zone.ID != "main-hall" {
+		t.Errorf("ID: %q, want %q", zone.ID, "main-hall")
+	}
+	if zone.Name != "Main Hall" {
+		t.Errorf("Name: %q", zone.Name)
+	}
+}
+
+func TestZoneRegistry_Add_DuplicateReturnsError(t *testing.T) {
+	zr := NewZoneRegistry()
+	if _, err := zr.Add("lobby"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := zr.Add("lobby"); err == nil {
+		t.Error("expected error for duplicate")
+	}
+	// "Lobby" and "lobby" both map to "lobby" — also duplicate
+	if _, err := zr.Add("Lobby"); err == nil {
+		t.Error("expected error for case-variant duplicate")
+	}
+}
+
+func TestZoneRegistry_List(t *testing.T) {
+	zr := NewZoneRegistry()
+	zr.Add("lobby")
+	zr.Add("stage")
+	zones := zr.List()
+	if len(zones) != 2 {
+		t.Errorf("len: %d, want 2", len(zones))
+	}
+}
+
+func TestZoneRegistry_Update(t *testing.T) {
+	zr := NewZoneRegistry()
+	zr.Add("lobby")
+	z, ok := zr.Update("lobby", "Lobby Area")
+	if !ok {
+		t.Fatal("Update returned false")
+	}
+	if z.Name != "Lobby Area" {
+		t.Errorf("Name: %q", z.Name)
+	}
+	if z.ID != "lobby" {
+		t.Errorf("ID changed: %q", z.ID)
+	}
+}
+
+func TestZoneRegistry_Delete(t *testing.T) {
+	zr := NewZoneRegistry()
+	zr.Add("lobby")
+	if !zr.Delete("lobby") {
+		t.Error("Delete returned false")
+	}
+	if _, ok := zr.Get("lobby"); ok {
+		t.Error("zone still present after delete")
+	}
+	if zr.Delete("lobby") {
+		t.Error("second delete should return false")
+	}
+}
+
+func TestZoneRegistry_PersistAndLoad(t *testing.T) {
+	path := t.TempDir() + "/zones.json"
+	zr := NewZoneRegistry()
+	zr.Add("lobby")
+	zr.Add("stage")
+	if err := zr.Persist(path); err != nil {
+		t.Fatalf("Persist: %v", err)
+	}
+	zr2 := NewZoneRegistry()
+	if err := zr2.Load(path); err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	zones := zr2.List()
+	if len(zones) != 2 {
+		t.Errorf("len after load: %d, want 2", len(zones))
+	}
+}
+
 func TestHandlePIRData_KafkaWriteError(t *testing.T) {
 	mockStore := NewMockEventStore()
 	registry := NewNodeRegistry()
