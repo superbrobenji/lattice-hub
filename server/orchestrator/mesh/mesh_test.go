@@ -3,6 +3,7 @@ package mesh
 import (
 	"bytes"
 	"testing"
+	"time"
 )
 
 // MockSerialPort implements SerialPort for testing
@@ -175,6 +176,26 @@ func TestNodeRegistry(t *testing.T) {
 			t.Errorf("Expected count 2, got %d", count)
 		}
 	})
+}
+
+func TestGetOnlineNodes_ThresholdBoundary(t *testing.T) {
+	registry := NewNodeRegistry()
+	mac := []byte{0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF}
+	macStr := macToString(mac)
+
+	registry.UpdateNode(mac, AdapterTypePIR, 1000, 1)
+
+	// Backdate LastSeen to 45 seconds ago: within 75s threshold but outside 30s threshold
+	registry.mu.Lock()
+	registry.nodes[macStr].LastSeen = time.Now().Add(-45 * time.Second)
+	registry.mu.Unlock()
+
+	if got := registry.GetOnlineNodes(30 * time.Second); len(got) != 0 {
+		t.Errorf("GetOnlineNodes(30s): expected 0 nodes for a 45s-old node, got %d", len(got))
+	}
+	if got := registry.GetOnlineNodes(75 * time.Second); len(got) != 1 {
+		t.Errorf("GetOnlineNodes(75s): expected 1 node for a 45s-old node, got %d", len(got))
+	}
 }
 
 func TestSerialComm(t *testing.T) {

@@ -1,6 +1,7 @@
 package mesh
 
 import (
+	"bytes"
 	"encoding/binary"
 	"testing"
 
@@ -66,6 +67,15 @@ func TestApproveEnrollment_SendsJoinAckWithPubKey(t *testing.T) {
 			t.Errorf("PublicKey[%d] = %d, want %d", i, b, wantPubKey[i])
 			break
 		}
+	}
+
+	// TargetMacAddress must carry the enrolling node's MAC — not OriginMacAddress
+	wantMAC := []byte{0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF} // from enrollTestNode helper
+	if !bytes.Equal(msg.TargetMacAddress, wantMAC) {
+		t.Errorf("TargetMacAddress = %x, want %x", msg.TargetMacAddress, wantMAC)
+	}
+	if len(msg.OriginMacAddress) != 0 {
+		t.Errorf("OriginMacAddress should be absent, got %x", msg.OriginMacAddress)
 	}
 }
 

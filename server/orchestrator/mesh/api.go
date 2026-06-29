@@ -238,7 +238,7 @@ func (api *APIServer) requestHealth(w http.ResponseWriter, r *http.Request) {
 func (api *APIServer) getStatus(w http.ResponseWriter, r *http.Request) {
 	registry := api.meshServer.GetNodeRegistry()
 	allNodes := registry.GetAllNodes()
-	onlineNodes := registry.GetOnlineNodes(30 * time.Second) // 30 second timeout
+	onlineNodes := registry.GetOnlineNodes(75 * time.Second) // 2.5× the 30s health interval — single missed report no longer marks offline
 	
 	status := map[string]interface{}{
 		"running":     api.meshServer.IsRunning(),
