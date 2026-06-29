@@ -57,6 +57,18 @@ func (api *APIServer) v1UpdateNode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// 1. Validate type FIRST (before any mutations)
+	var adapterType int32
+	if body.Type != nil {
+		var ok bool
+		adapterType, ok = adapterTypeFromString(*body.Type)
+		if !ok {
+			api.writeError(w, http.StatusBadRequest, "unknown type: "+*body.Type)
+			return
+		}
+	}
+
+	// 2. Then update name/zone
 	name := node.Name
 	zone := node.Zone
 	if body.Name != nil {
@@ -65,15 +77,10 @@ func (api *APIServer) v1UpdateNode(w http.ResponseWriter, r *http.Request) {
 	if body.Zone != nil {
 		zone = *body.Zone
 	}
-
 	api.meshServer.GetNodeRegistry().AssignNode(node.MAC, node.NodeID, name, zone)
 
+	// 3. Then configure type if provided
 	if body.Type != nil {
-		adapterType, ok := adapterTypeFromString(*body.Type)
-		if !ok {
-			api.writeError(w, http.StatusBadRequest, "unknown type: "+*body.Type)
-			return
-		}
 		if err := api.meshServer.ConfigureNode(node.MAC, adapterType); err != nil {
 			api.writeError(w, http.StatusInternalServerError, "failed to configure node")
 			return
@@ -111,8 +118,7 @@ func (api *APIServer) v1NodeCommand(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var body struct {
-		Action string                 `json:"action"`
-		Params map[string]interface{} `json:"params"`
+		Action string `json:"action"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.Action == "" {
 		api.writeError(w, http.StatusBadRequest, "action is required")

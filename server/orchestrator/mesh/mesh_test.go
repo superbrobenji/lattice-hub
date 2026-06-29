@@ -605,6 +605,9 @@ func TestAdapterTypeTranslation(t *testing.T) {
 	if v, ok := adapterTypeFromString("pir"); !ok || v != AdapterTypePIR {
 		t.Errorf("adapterTypeFromString(pir): got %d,%v", v, ok)
 	}
+	if v, ok := adapterTypeFromString("led"); !ok || v != AdapterTypeLED {
+		t.Errorf("adapterTypeFromString(led): got %d,%v", v, ok)
+	}
 	if _, ok := adapterTypeFromString("serial"); ok {
 		t.Error("serial should not be writable via type string")
 	}
