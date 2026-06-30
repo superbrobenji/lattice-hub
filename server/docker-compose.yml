@@ -107,6 +107,10 @@ services:
     ports:
       - "3001:3001"
     read_only: true
+    tmpfs:
+      - /tmp
+      - /var/cache/nginx
+      - /var/run
     security_opt:
       - no-new-privileges:true
     networks:
@@ -137,6 +141,10 @@ services:
     ports:
       - "3002:3002"
     read_only: true
+    tmpfs:
+      - /tmp
+      - /var/cache/nginx
+      - /var/run
     security_opt:
       - no-new-privileges:true
     networks:

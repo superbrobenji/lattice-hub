@@ -6,13 +6,17 @@ export function Login({ onLogin }: { onLogin: () => void }) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Test the key against sidecar
-    const res = await fetch(
-      (import.meta.env.VITE_SIDECAR_URL ?? "http://localhost:9000") + "/sidecar/containers",
-      { headers: { Authorization: `Bearer ${key}` } }
-    );
-    if (res.status === 401) {
-      setError("Invalid admin key");
+    try {
+      const res = await fetch(
+        (import.meta.env.VITE_SIDECAR_URL ?? "http://localhost:9000") + "/sidecar/containers",
+        { headers: { Authorization: `Bearer ${key}` } }
+      );
+      if (!res.ok) {
+        setError(res.status === 401 ? "Invalid admin key" : `Sidecar error (${res.status})`);
+        return;
+      }
+    } catch {
+      setError("Cannot reach sidecar — check network");
       return;
     }
     sessionStorage.setItem("adminKey", key);
