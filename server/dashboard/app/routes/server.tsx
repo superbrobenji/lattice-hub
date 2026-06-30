@@ -1,7 +1,6 @@
 import { useFetcher } from "react-router";
 import type { Route } from "../+types/root";
-import ApiService from "../services/apiService";
-import type { IApiResponse } from "~/interfaces/IApiService";
+import { apiService } from "../services/apiService";
 import { useState } from "react";
 import { formatTime } from "~/services/formatDateTime";
 
@@ -13,11 +12,7 @@ interface ServerStatus {
 }
 
 export async function loader(): Promise<ServerStatus> {
-  const response = (await ApiService("getStatus")) as IApiResponse<ServerStatus>;
-  if (!response.success || !response.data) {
-    throw new Response("Failed to get server status", { status: 500 });
-  }
-  return response.data;
+  return apiService.getStatus() as Promise<ServerStatus>;
 }
 
 export default function Server({ loaderData }: { loaderData?: ServerStatus }) {
@@ -54,12 +49,16 @@ export async function action({ request }: Route.ActionArgs) {
   const formData = await request.formData();
   const actionType = formData.get("action");
 
+  const baseUrl = import.meta.env.VITE_API_URL ?? "http://localhost:8080";
+  const headers: HeadersInit = {
+    Authorization: `Bearer ${import.meta.env.VITE_API_KEY ?? ""}`,
+  };
+
   if (actionType === "start") {
-    await ApiService("startServer", { method: "POST" });
+    await fetch(`${baseUrl}/api/v1/server/start`, { method: "POST", headers });
   } else if (actionType === "stop") {
-    await ApiService("stopServer", { method: "POST" });
+    await fetch(`${baseUrl}/api/v1/server/stop`, { method: "POST", headers });
   }
 
-  const response = (await ApiService("getStatus")) as IApiResponse<ServerStatus>;
-  return response.data ?? { running: false, totalNodes: 0, onlineNodes: 0, timestamp: 0 };
+  return apiService.getStatus() as Promise<ServerStatus>;
 }
