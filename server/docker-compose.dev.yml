@@ -1,0 +1,16 @@
+# Development-only services. Use with:
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up
+
+services:
+  jupyter:
+    image: jupyter/scipy-notebook:latest
+    depends_on:
+      - kafka
+    volumes:
+      - ./logging:/home/jovyan/work
+    ports:
+      - "8888:8888"
+    environment:
+      - JUPYTER_ENABLE_LAB=yes
+    networks:
+      - kafka-net
