@@ -3,6 +3,7 @@ package mesh
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
@@ -873,6 +874,52 @@ func TestHandlePIRData_KafkaWriteError(t *testing.T) {
 
 	if len(mockStore.GetMessages()) != 1 {
 		t.Errorf("expected 1 Kafka message written, got %d", len(mockStore.GetMessages()))
+	}
+}
+
+func TestV1GetPendingEnrollments_ResponseFormat(t *testing.T) {
+	ms := newTestMeshServer(t)
+	mac := [6]byte{0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF}
+	var pubKey [32]byte
+	for i := range pubKey {
+		pubKey[i] = byte(i + 1)
+	}
+	if err := ms.authRegistry.AddPending(mac, pubKey); err != nil {
+		t.Fatalf("AddPending: %v", err)
+	}
+
+	api := NewAPIServer(ms, "", nil)
+	req := httptest.NewRequest("GET", "/api/v1/enrollments/pending", nil)
+	rr := httptest.NewRecorder()
+	api.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200", rr.Code)
+	}
+
+	var resp struct {
+		Success bool `json:"success"`
+		Data    []struct {
+			MAC       string `json:"mac"`
+			PublicKey string `json:"publicKey"`
+			Status    int    `json:"status"`
+		} `json:"data"`
+	}
+	if err := json.NewDecoder(rr.Body).Decode(&resp); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if len(resp.Data) != 1 {
+		t.Fatalf("len(data) = %d, want 1", len(resp.Data))
+	}
+	entry := resp.Data[0]
+
+	// MAC must be hex string (12 chars), NOT base64
+	if len(entry.MAC) != 12 {
+		t.Errorf("MAC = %q (len %d), want 12-char hex like aabbccddeeff", entry.MAC, len(entry.MAC))
+	}
+	// PublicKey must be hex string (64 chars), NOT base64
+	if len(entry.PublicKey) != 64 {
+		t.Errorf("PublicKey len = %d, want 64 (hex)", len(entry.PublicKey))
 	}
 }
 
