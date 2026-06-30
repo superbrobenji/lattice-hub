@@ -68,6 +68,9 @@ type MeshServer struct {
 	zoneRegistry     *ZoneRegistry
 	zoneRegistryPath string
 
+	// Command tracking
+	commandStore *CommandStore
+
 	// Runtime state
 	ctx     context.Context
 	cancel  context.CancelFunc
@@ -131,6 +134,7 @@ func NewMeshServer(config MeshServerConfig) *MeshServer {
 		nodeOnlineState:  make(map[string]bool),
 		zoneRegistry:     zoneRegistry,
 		zoneRegistryPath: config.ZoneRegistryPath,
+		commandStore:     NewCommandStore(),
 		ctx:              ctx,
 		cancel:           cancel,
 	}
@@ -776,6 +780,9 @@ func (ms *MeshServer) GetHealthTimeout() time.Duration { return ms.healthTimeout
 
 // GetZoneRegistry returns the zone registry.
 func (ms *MeshServer) GetZoneRegistry() *ZoneRegistry { return ms.zoneRegistry }
+
+// GetCommandStore returns the command store for tracking pending commands.
+func (ms *MeshServer) GetCommandStore() *CommandStore { return ms.commandStore }
 
 // SetZoneRegistryPath sets the persistence path and loads existing zones.
 func (ms *MeshServer) SetZoneRegistryPath(path string) {

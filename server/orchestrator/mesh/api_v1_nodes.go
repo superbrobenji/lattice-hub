@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"time"
 
+	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/superbrobenji/planetopia-protocol/opcodes"
 )
@@ -134,6 +136,8 @@ func (api *APIServer) v1NodeCommand(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	commandID := uuid.New()
+
 	payload := make([]byte, MaxDataLength)
 	switch body.Action {
 	case "led_solid":
@@ -158,11 +162,28 @@ func (api *APIServer) v1NodeCommand(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Embed correlation token (low 2 bytes of UUID) at end of payload
+	// so node can echo it back in OP_COMMAND_ACK
+	idBytes := commandID[14:16]
+	payload[MaxDataLength-2] = idBytes[0]
+	payload[MaxDataLength-1] = idBytes[1]
+
+	api.meshServer.GetCommandStore().Add(&PendingCommand{
+		ID:     commandID.String(),
+		NodeID: id,
+		Action: body.Action,
+		SentAt: time.Now(),
+		Status: CommandStatusPending,
+	})
+
 	if err := api.meshServer.SendNodeData(node.AdapterType, payload); err != nil {
 		api.writeError(w, http.StatusInternalServerError, "failed to send command")
 		return
 	}
-	api.writeJSON(w, http.StatusAccepted, APIResponse{Success: true, Message: "command sent"})
+	api.writeJSON(w, http.StatusAccepted, APIResponse{
+		Success: true,
+		Data:    map[string]string{"commandId": commandID.String()},
+	})
 }
 
 // adapterIsOutput returns true for adapter types that receive commands from the server.

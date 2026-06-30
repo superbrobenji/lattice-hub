@@ -3,7 +3,11 @@ package mesh
 import (
 	"encoding/json"
 	"net/http"
+	"net/http/httptest"
+	"strings"
 	"testing"
+
+	"github.com/google/uuid"
 )
 
 func setupNodeForV1Test(t *testing.T, ms *MeshServer) {
@@ -164,5 +168,40 @@ func TestV1Nodes_Hotswap_OldNodeExcludedNewNodePresent(t *testing.T) {
 	}
 	if nodes[0].Name != "entrance-left" {
 		t.Errorf("Name = %q, want %q (inherited)", nodes[0].Name, "entrance-left")
+	}
+}
+
+func TestV1NodeCommand_ReturnsCommandId(t *testing.T) {
+	ms := newTestMeshServer(t)
+	mockPort := NewMockSerialPort()
+	ms.serialComm = NewSerialComm(mockPort)
+	mac := []byte{0x11, 0x22, 0x33, 0x44, 0x55, 0x66}
+	ms.nodeRegistry.AssignNode(mac, 1, "led-node", "stage")
+	ms.nodeRegistry.UpdateNode(mac, AdapterTypeLED, 0, 1)
+
+	api := NewAPIServer(ms, "", nil)
+	req := httptest.NewRequest("POST", "/api/v1/nodes/1/command", strings.NewReader(`{"action":"led_off"}`))
+	req.Header.Set("Content-Type", "application/json")
+	rr := httptest.NewRecorder()
+	api.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusAccepted {
+		t.Fatalf("status = %d, want 202; body: %s", rr.Code, rr.Body.String())
+	}
+
+	var resp struct {
+		Success bool `json:"success"`
+		Data    struct {
+			CommandID string `json:"commandId"`
+		} `json:"data"`
+	}
+	if err := json.NewDecoder(rr.Body).Decode(&resp); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if resp.Data.CommandID == "" {
+		t.Error("commandId is empty, want a UUID")
+	}
+	if _, err := uuid.Parse(resp.Data.CommandID); err != nil {
+		t.Errorf("commandId %q is not a valid UUID: %v", resp.Data.CommandID, err)
 	}
 }
