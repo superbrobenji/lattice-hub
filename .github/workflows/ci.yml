@@ -160,3 +160,39 @@ jobs:
           cache-dependency-path: server/artist-portal/package-lock.json
       - run: npm ci
       - run: npm run lint
+
+  ops-dashboard-build:
+    name: Build (ops-dashboard)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: server/ops-dashboard
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: lts/*
+          cache: npm
+          cache-dependency-path: server/ops-dashboard/package-lock.json
+      - run: npm ci
+      - run: npm run build
+
+  ops-dashboard-lint:
+    name: Lint (ops-dashboard)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: server/ops-dashboard
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: lts/*
+          cache: npm
+          cache-dependency-path: server/ops-dashboard/package-lock.json
+      - run: npm ci
+      - run: npm run lint
