@@ -57,30 +57,6 @@ func (s *store) WriteMessage(event string, topic string) error {
 	return nil
 }
 
-func (s *store) SubscribeToEvents(ctx context.Context, topic string) error {
-	if s.reader != nil {
-		s.reader.Close()
-	}
-	s.reader = kafka.NewReader(kafka.ReaderConfig{
-		Brokers: []string{s.broker},
-		Topic:   topic,
-		GroupID: s.groupId,
-	})
-	slog.Info("Subscribed to Kafka topic", "topic", topic)
-	for {
-		msg, err := s.reader.ReadMessage(ctx)
-		if err != nil {
-			if ctx.Err() != nil {
-				return nil // clean shutdown
-			}
-			slog.Error("Kafka consumer error", "topic", topic, "error", err)
-			s.reader.Close()
-			return err
-		}
-		slog.Debug("Kafka message received", "topic", msg.Topic, "value", string(msg.Value))
-	}
-}
-
 func (s *store) Close() error {
 	if s.reader != nil {
 		if err := s.reader.Close(); err != nil {

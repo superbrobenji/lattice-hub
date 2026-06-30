@@ -2,7 +2,6 @@ package mesh
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -77,7 +76,6 @@ func newBlockingEventStore() *blockingEventStore {
 
 func (b *blockingEventStore) Connect() error { return nil }
 func (b *blockingEventStore) Close() error   { return nil }
-func (b *blockingEventStore) SubscribeToEvents(_ context.Context, _ string) error { return nil }
 func (b *blockingEventStore) WriteMessage(_ string, _ string) error {
 	close(b.ready)   // signal: we are inside WriteMessage (RLock is held)
 	<-b.release      // wait until test says to continue
