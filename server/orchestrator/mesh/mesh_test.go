@@ -3,6 +3,7 @@ package mesh
 import (
 	"bytes"
 	"context"
+	"path/filepath"
 	"testing"
 	"time"
 )
@@ -806,6 +807,41 @@ func TestAdapterTypeTranslation(t *testing.T) {
 	}
 	if _, ok := adapterTypeFromString("unknown"); ok {
 		t.Error("unknown should not be writable")
+	}
+}
+
+func TestMeshServer_ZoneRegistry_PersistAndLoad(t *testing.T) {
+	dir := t.TempDir()
+	zonePath := filepath.Join(dir, "zones.json")
+
+	// First server: create and stop (persists zones)
+	cfg1 := MeshServerConfig{
+		HealthTimeout:    75 * time.Second,
+		ZoneRegistryPath: zonePath,
+	}
+	ms1 := NewMeshServer(cfg1)
+	zone, err := ms1.GetZoneRegistry().Add("stage")
+	if err != nil {
+		t.Fatalf("Add zone: %v", err)
+	}
+	// Set running=true so Stop() proceeds past the guard and calls zoneRegistry.Persist.
+	ms1.running = true
+	if err := ms1.Stop(); err != nil {
+		t.Logf("Stop ms1: %v", err)
+	}
+
+	// Second server: load from same path
+	cfg2 := MeshServerConfig{
+		HealthTimeout:    75 * time.Second,
+		ZoneRegistryPath: zonePath,
+	}
+	ms2 := NewMeshServer(cfg2)
+	loaded, ok := ms2.GetZoneRegistry().Get(zone.ID)
+	if !ok {
+		t.Fatal("zone not found after reload")
+	}
+	if loaded.Name != "stage" {
+		t.Errorf("zone name = %q, want %q", loaded.Name, "stage")
 	}
 }
 

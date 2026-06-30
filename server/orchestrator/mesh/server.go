@@ -85,6 +85,7 @@ type MeshServerConfig struct {
 	EventStore       EventStore.EventStoreInterface
 	AuthRegistryPath string // e.g. "data/nodeauth.json"
 	NodeRegistryPath string // e.g. "data/nodes.json"
+	ZoneRegistryPath string // e.g. "data/zones.json"
 }
 
 // NewMeshServer creates a new mesh server
@@ -105,6 +106,13 @@ func NewMeshServer(config MeshServerConfig) *MeshServer {
 		}
 	}
 
+	zoneRegistry := NewZoneRegistry()
+	if config.ZoneRegistryPath != "" {
+		if err := zoneRegistry.Load(config.ZoneRegistryPath); err != nil {
+			slog.Warn("Failed to load zone registry", "error", err)
+		}
+	}
+
 	return &MeshServer{
 		nodeRegistry:     nodeRegistry,
 		messageBuilder:   NewMessageBuilder(),
@@ -121,7 +129,8 @@ func NewMeshServer(config MeshServerConfig) *MeshServer {
 		healthTimeout:    config.HealthTimeout,
 		eventBroker:      NewEventBroker(),
 		nodeOnlineState:  make(map[string]bool),
-		zoneRegistry:     NewZoneRegistry(),
+		zoneRegistry:     zoneRegistry,
+		zoneRegistryPath: config.ZoneRegistryPath,
 		ctx:              ctx,
 		cancel:           cancel,
 	}
