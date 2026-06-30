@@ -1,11 +1,11 @@
 package mesh
 
 import (
-	"bytes"
 	"encoding/binary"
 	"testing"
 	"time"
 
+	"github.com/superbrobenji/planetopia-protocol/opcodes"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -236,16 +236,18 @@ func TestHandleMessage_ProtoVersionGuard(t *testing.T) {
 	}
 }
 
-func TestSendNodeData_EmbedsMacInPayload(t *testing.T) {
+func TestSendNodeData_LEDPayloadPreserved(t *testing.T) {
 	ms := newTestMeshServer(t)
 	mockPort := NewMockSerialPort()
 	ms.serialComm = NewSerialComm(mockPort)
 
-	mac := []byte{0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF}
 	data := make([]byte, MaxDataLength)
-	data[0] = 0xD0 // trigger opcode
+	data[0] = opcodes.OpLEDSolid
+	data[1] = 0x11 // R
+	data[2] = 0x22 // G
+	data[3] = 0x33 // B
 
-	if err := ms.SendNodeData(mac, int32(AdapterTypeSerial), data); err != nil {
+	if err := ms.SendNodeData(int32(AdapterTypeLED), data); err != nil {
 		t.Fatalf("SendNodeData: %v", err)
 	}
 
@@ -259,11 +261,15 @@ func TestSendNodeData_EmbedsMacInPayload(t *testing.T) {
 		t.Fatalf("unmarshal: %v", err)
 	}
 
-	if msg.Data[0] != 0xD0 {
-		t.Errorf("Data[0] opcode: got 0x%02X, want 0xD0", msg.Data[0])
+	if msg.DataType != int32(AdapterTypeLED) {
+		t.Errorf("DataType: got %d, want %d (AdapterTypeLED)", msg.DataType, AdapterTypeLED)
 	}
-	if !bytes.Equal(msg.Data[1:7], mac) {
-		t.Errorf("Data[1:7] MAC: got %v, want %v", msg.Data[1:7], mac)
+	if msg.Data[0] != opcodes.OpLEDSolid {
+		t.Errorf("Data[0] opcode: got 0x%02X, want OpLEDSolid (0x%02X)", msg.Data[0], opcodes.OpLEDSolid)
+	}
+	if msg.Data[1] != 0x11 || msg.Data[2] != 0x22 || msg.Data[3] != 0x33 {
+		t.Errorf("Data[1:4] RGB: got %02X %02X %02X, want 11 22 33",
+			msg.Data[1], msg.Data[2], msg.Data[3])
 	}
 }
 
