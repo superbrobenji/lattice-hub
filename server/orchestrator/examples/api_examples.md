@@ -1,25 +1,22 @@
-# Planetopia Mesh Server API Examples
+# API Examples
 
-This document provides examples of how to interact with the Planetopia Mesh Server HTTP API.
-
-## Base URL
-
-```
-http://localhost:8080
-```
+All examples use the v1 API at `/api/v1/`. Replace `localhost:8080` with your deployment host.
 
 ## Authentication
 
-Currently, the API does not require authentication. For production use, consider adding authentication middleware.
+Public endpoints (read-only node and zone data, event stream) require no authentication.
 
-## API Endpoints
+Admin endpoints (enrollment approval, node deletion, zone deletion) require:
+```
+Authorization: Bearer <ADMIN_KEY>
+```
 
-### 1. Server Status
+---
 
-Get the current status of the mesh server:
+## System Status
 
 ```bash
-curl -X GET http://localhost:8080/status
+curl http://localhost:8080/api/v1/status
 ```
 
 Response:
@@ -27,53 +24,25 @@ Response:
 {
   "success": true,
   "data": {
-    "running": true,
-    "totalNodes": 5,
-    "onlineNodes": 3,
-    "timestamp": 1704067200
+    "serial": { "primary": "connected", "secondary": "not_configured" },
+    "nodes": { "total": 3, "online": 2, "offline": 1 },
+    "mesh": { "masterOnline": true }
   }
 }
 ```
 
-### 2. List All Nodes
+---
 
-Get information about all known mesh nodes:
+## Nodes
 
+### List all nodes
 ```bash
-curl -X GET http://localhost:8080/nodes
+curl http://localhost:8080/api/v1/nodes
 ```
 
-Response:
-```json
-{
-  "success": true,
-  "data": [
-    {
-      "mac": "aa:bb:cc:dd:ee:ff",
-      "macString": "aa:bb:cc:dd:ee:ff",
-      "adapterType": 0,
-      "uptime": 3600,
-      "lastSeen": "2024-01-01T12:00:00Z",
-      "hopCount": 1
-    },
-    {
-      "mac": "11:22:33:44:55:66",
-      "macString": "11:22:33:44:55:66",
-      "adapterType": 0,
-      "uptime": 7200,
-      "lastSeen": "2024-01-01T12:05:00Z",
-      "hopCount": 2
-    }
-  ]
-}
-```
-
-### 3. Get Specific Node
-
-Get information about a specific node by MAC address:
-
+### Get a single node
 ```bash
-curl -X GET http://localhost:8080/nodes/aa:bb:cc:dd:ee:ff
+curl http://localhost:8080/api/v1/nodes/3
 ```
 
 Response:
@@ -81,260 +50,121 @@ Response:
 {
   "success": true,
   "data": {
-    "mac": "aa:bb:cc:dd:ee:ff",
-    "macString": "aa:bb:cc:dd:ee:ff",
-    "adapterType": 0,
+    "id": 3,
+    "name": "entrance-left",
+    "zone": "lobby",
+    "online": true,
+    "adapterType": "pir",
     "uptime": 3600,
-    "lastSeen": "2024-01-01T12:00:00Z",
-    "hopCount": 1
+    "hopCount": 1,
+    "lastSeen": "2026-06-30T12:00:00Z"
   }
 }
 ```
 
-### 4. Configure Single Node
-
-Configure a specific node's adapter type:
-
+### Update a node
 ```bash
-curl -X POST http://localhost:8080/nodes/aa:bb:cc:dd:ee:ff/configure \
+curl -X PATCH http://localhost:8080/api/v1/nodes/3 \
+  -H "Authorization: Bearer $ADMIN_KEY" \
   -H "Content-Type: application/json" \
-  -d '{
-    "adapterType": 0
-  }'
+  -d '{"name": "entrance-right", "zone": "lobby"}'
 ```
 
-Adapter Types:
-- `-1`: Unknown
-- `0`: PIR (Motion Sensor)
-- `1`: WiFi (Reserved)
-- `2`: LED (Reserved)
-- `3`: Serial (Control)
-
-Response:
-```json
-{
-  "success": true,
-  "message": "Node aa:bb:cc:dd:ee:ff configured to adapter type PIR"
-}
-```
-
-### 5. Configure All Nodes
-
-Configure all nodes in the mesh to the same adapter type:
-
+### Send command to output node (LED strip)
 ```bash
-curl -X POST http://localhost:8080/nodes/configure-all \
+curl -X POST http://localhost:8080/api/v1/nodes/4/command \
   -H "Content-Type: application/json" \
-  -d '{
-    "adapterType": 0
-  }'
+  -d '{"action": "led_solid", "colour": [255, 0, 0]}'
 ```
 
-Response:
+Response (202 Accepted):
 ```json
-{
-  "success": true,
-  "message": "All nodes configured to adapter type PIR"
-}
+{ "success": true, "data": { "commandId": "a1b2c3d4-..." } }
 ```
 
-### 6. Request Health Reports
-
-Request immediate health reports from all nodes:
-
+Track acknowledgement via SSE or poll:
 ```bash
-curl -X POST http://localhost:8080/health/request
+curl http://localhost:8080/api/v1/nodes/4/command/a1b2c3d4-...
 ```
 
-Response:
-```json
-{
-  "success": true,
-  "message": "Health reports requested"
-}
-```
+---
 
-### 7. Broadcast Data
+## Zones
 
-Broadcast custom data to all nodes in the mesh:
-
+### List zones
 ```bash
-curl -X POST http://localhost:8080/broadcast \
+curl http://localhost:8080/api/v1/zones
+```
+
+### Create a zone
+```bash
+curl -X POST http://localhost:8080/api/v1/zones \
+  -H "Authorization: Bearer $ADMIN_KEY" \
   -H "Content-Type: application/json" \
-  -d '{
-    "dataType": 0,
-    "data": [1, 2, 3, 4, 5]
-  }'
+  -d '{"name": "stage"}'
 ```
 
-Response:
-```json
-{
-  "success": true,
-  "message": "Data broadcasted to all nodes (type: PIR, length: 5)"
-}
-```
-
-### 8. Start Server
-
-Start the mesh communication (if stopped):
-
+### Send command to all output nodes in a zone
 ```bash
-curl -X POST http://localhost:8080/server/start
-```
-
-Response:
-```json
-{
-  "success": true,
-  "message": "Mesh server started"
-}
-```
-
-### 9. Stop Server
-
-Stop the mesh communication:
-
-```bash
-curl -X POST http://localhost:8080/server/stop
-```
-
-Response:
-```json
-{
-  "success": true,
-  "message": "Mesh server stopped"
-}
-```
-
-## Error Responses
-
-All error responses follow this format:
-
-```json
-{
-  "success": false,
-  "error": "Error message describing what went wrong"
-}
-```
-
-Common HTTP status codes:
-- `200`: Success
-- `400`: Bad Request (invalid input)
-- `404`: Not Found (node not found)
-- `409`: Conflict (server already running/stopped)
-- `500`: Internal Server Error
-
-## Example Workflow
-
-Here's a typical workflow for setting up and monitoring a mesh network:
-
-### 1. Check Server Status
-```bash
-curl http://localhost:8080/status
-```
-
-### 2. Request Health Reports
-```bash
-curl -X POST http://localhost:8080/health/request
-```
-
-### 3. Wait a few seconds, then check nodes
-```bash
-curl http://localhost:8080/nodes
-```
-
-### 4. Configure all nodes as PIR sensors
-```bash
-curl -X POST http://localhost:8080/nodes/configure-all \
+curl -X POST http://localhost:8080/api/v1/zones/stage-id/command \
   -H "Content-Type: application/json" \
-  -d '{"adapterType": 0}'
+  -d '{"action": "led_off"}'
 ```
 
-### 5. Monitor specific node
+---
+
+## Enrollment
+
+### List pending enrollments
 ```bash
-curl http://localhost:8080/nodes/aa:bb:cc:dd:ee:ff
+curl http://localhost:8080/api/v1/enrollments/pending \
+  -H "Authorization: Bearer $API_KEY"
 ```
 
-## Integration with Other Systems
+Response:
+```json
+{
+  "success": true,
+  "data": [{
+    "mac": "aa:bb:cc:dd:ee:ff",
+    "publicKey": "0102030405...",
+    "status": 0,
+    "receivedAt": 1751289600,
+    "approvedAt": 0
+  }]
+}
+```
 
-### Webhook Integration
-
-You can create a simple monitoring script that polls the API:
-
+### Approve enrollment
 ```bash
-#!/bin/bash
-# monitor_nodes.sh
-
-while true; do
-  echo "Checking node status at $(date)"
-  curl -s http://localhost:8080/nodes | jq '.data[] | {mac: .macString, type: .adapterType, uptime: .uptime}'
-  sleep 30
-done
+curl -X POST http://localhost:8080/api/v1/enrollments/aa:bb:cc:dd:ee:ff/approve \
+  -H "Authorization: Bearer $ADMIN_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"name": "entrance-left", "zone": "lobby", "type": "pir", "nodeId": 3}'
 ```
 
-### Python Integration
-
-```python
-import requests
-import time
-
-class MeshServerClient:
-    def __init__(self, base_url="http://localhost:8080"):
-        self.base_url = base_url
-    
-    def get_status(self):
-        response = requests.get(f"{self.base_url}/status")
-        return response.json()
-    
-    def get_nodes(self):
-        response = requests.get(f"{self.base_url}/nodes")
-        return response.json()
-    
-    def configure_node(self, mac, adapter_type):
-        data = {"adapterType": adapter_type}
-        response = requests.post(
-            f"{self.base_url}/nodes/{mac}/configure",
-            json=data
-        )
-        return response.json()
-    
-    def request_health(self):
-        response = requests.post(f"{self.base_url}/health/request")
-        return response.json()
-
-# Usage example
-client = MeshServerClient()
-status = client.get_status()
-print(f"Server running: {status['data']['running']}")
-
-nodes = client.get_nodes()
-print(f"Total nodes: {len(nodes['data'])}")
-```
-
-## Troubleshooting
-
-### Common Issues
-
-1. **Node not responding**: Check if the node is powered and within range
-2. **Configuration not applied**: Nodes reboot after configuration; wait 10-15 seconds
-3. **Health reports missing**: Request health reports manually with `/health/request`
-4. **Serial connection issues**: Check Docker container has access to `/dev/ttyUSB0`
-
-### Debugging
-
-Enable verbose logging by checking Docker logs:
-
+### Reject enrollment
 ```bash
-docker-compose logs -f orchestrator
+curl -X POST http://localhost:8080/api/v1/enrollments/aa:bb:cc:dd:ee:ff/reject \
+  -H "Authorization: Bearer $ADMIN_KEY"
 ```
 
-Monitor Kafka messages for debugging:
+---
 
-```bash
-# Connect to Kafka container
-docker-compose exec kafka kafka-console-consumer.sh \
-  --bootstrap-server localhost:9092 \
-  --topic mesh-messages \
-  --from-beginning
+## Real-time Events (SSE)
+
+```javascript
+const es = new EventSource("http://localhost:8080/api/v1/events");
+
+es.addEventListener("motion", (e) => {
+  const data = JSON.parse(e.data);
+  console.log(`Motion: node ${data.nodeId} (${data.name}) in ${data.zone}`);
+});
+
+es.addEventListener("command_ack", (e) => {
+  const data = JSON.parse(e.data);
+  console.log(`Command ${data.commandId} acknowledged by node ${data.nodeId}`);
+});
 ```
+
+Event types: `motion`, `health`, `node_online`, `node_offline`, `enrolled`, `command_ack`

@@ -63,13 +63,6 @@ func (s *SerialComm) WriteFrame(msg *MeshMessage) error {
 	return nil
 }
 
-// WriteRaw writes raw bytes directly to the serial port without framing.
-// Used for non-protobuf control frames such as OP_TX_POWER_SET.
-func (s *SerialComm) WriteRaw(data []byte) error {
-	_, err := s.port.Write(data)
-	return err
-}
-
 // ReadFrame reads a protobuf message with 2-byte little-endian length prefix
 func (s *SerialComm) ReadFrame() (*MeshMessage, error) {
 	// Read 2-byte header

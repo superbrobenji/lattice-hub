@@ -30,19 +30,6 @@ services:
     networks:
       - kafka-net
 
-  jupyter:
-    image: jupyter/scipy-notebook:latest
-    depends_on:
-      - kafka
-    volumes:
-      - ./logging:/home/jovyan/work
-    ports:
-      - "8888:8888"
-    environment:
-      - JUPYTER_ENABLE_LAB=yes
-    networks:
-      - kafka-net
-
   orchestrator:
     build: ./orchestrator
     depends_on:
