@@ -39,6 +39,8 @@ func (m *MockSerialPort) Close() error {
 	return nil
 }
 
+func (m *MockSerialPort) Flush() error { return nil }
+
 func (m *MockSerialPort) AddReadData(data []byte) {
 	m.readBuffer.Write(data)
 }
@@ -538,6 +540,23 @@ func TestMarkReplaced_PersistsAndLoadsCorrectly(t *testing.T) {
 	}
 	if node.ReplacedBy != "11:22:33:44:55:66" {
 		t.Errorf("ReplacedBy after load = %q, want %q", node.ReplacedBy, "11:22:33:44:55:66")
+	}
+}
+
+func TestFlushBuffer_CompletesQuickly(t *testing.T) {
+	mockPort := NewMockSerialPort()
+	comm := NewSerialComm(mockPort)
+
+	done := make(chan error, 1)
+	go func() { done <- comm.FlushBuffer() }()
+
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Errorf("FlushBuffer() = %v, want nil", err)
+		}
+	case <-time.After(500 * time.Millisecond):
+		t.Fatal("FlushBuffer() blocked for >500ms")
 	}
 }
 
