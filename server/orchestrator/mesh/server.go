@@ -904,6 +904,19 @@ func (ms *MeshServer) IsRunning() bool {
 	return ms.running
 }
 
+// IsMasterOnline returns true if the primary master node has sent a frame
+// within the configured health timeout. Returns false if no frame has ever
+// been received (zero time).
+func (ms *MeshServer) IsMasterOnline() bool {
+	ms.frameTimeMu.Lock()
+	t := ms.primaryLastFrameAt
+	ms.frameTimeMu.Unlock()
+	if t.IsZero() {
+		return false
+	}
+	return time.Since(t) < ms.healthTimeout
+}
+
 // SerialStatus returns the connection state of primary and secondary serial ports,
 // and whether a secondary port is configured.
 func (ms *MeshServer) SerialStatus() (primary bool, secondary bool, secondaryConfigured bool) {

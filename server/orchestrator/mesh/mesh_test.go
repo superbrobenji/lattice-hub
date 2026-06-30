@@ -941,3 +941,33 @@ func TestCORSMiddleware_AllowsPatchAndDelete(t *testing.T) {
 		}
 	}
 }
+
+func TestIsMasterOnline_FalseWhenNoFrameReceived(t *testing.T) {
+	ms := newTestMeshServer(t)
+	// No frames received — primaryLastFrameAt is zero
+	if ms.IsMasterOnline() {
+		t.Error("IsMasterOnline() = true, want false when no frame received")
+	}
+}
+
+func TestIsMasterOnline_TrueAfterRecentFrame(t *testing.T) {
+	ms := newTestMeshServer(t)
+	ms.frameTimeMu.Lock()
+	ms.primaryLastFrameAt = time.Now()
+	ms.frameTimeMu.Unlock()
+
+	if !ms.IsMasterOnline() {
+		t.Error("IsMasterOnline() = false, want true after recent frame")
+	}
+}
+
+func TestIsMasterOnline_FalseAfterTimeout(t *testing.T) {
+	ms := newTestMeshServer(t)
+	ms.frameTimeMu.Lock()
+	ms.primaryLastFrameAt = time.Now().Add(-80 * time.Second) // older than 75s timeout
+	ms.frameTimeMu.Unlock()
+
+	if ms.IsMasterOnline() {
+		t.Error("IsMasterOnline() = true, want false after healthTimeout elapsed")
+	}
+}
