@@ -95,7 +95,7 @@ func main() {
 			return ""
 		}(),
 		BaudRate:         *baudRate,
-		HealthTimeout:    30 * time.Second,
+		HealthTimeout:    75 * time.Second,
 		EventStore:       eventStore,
 		AuthRegistryPath: *authRegistry,
 		NodeRegistryPath: *nodeRegistry,
