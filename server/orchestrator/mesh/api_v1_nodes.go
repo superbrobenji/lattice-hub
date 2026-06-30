@@ -158,7 +158,7 @@ func (api *APIServer) v1NodeCommand(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := api.meshServer.SendNodeData(node.MAC, int32(AdapterTypeSerial), payload); err != nil {
+	if err := api.meshServer.SendNodeData(node.AdapterType, payload); err != nil {
 		api.writeError(w, http.StatusInternalServerError, "failed to send command")
 		return
 	}

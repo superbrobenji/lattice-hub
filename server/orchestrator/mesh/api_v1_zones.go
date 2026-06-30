@@ -98,7 +98,7 @@ func (api *APIServer) v1ZoneCommand(w http.ResponseWriter, r *http.Request) {
 	sent := 0
 	for _, node := range nodes {
 		if adapterIsOutput(node.AdapterType) {
-			if err := api.meshServer.SendNodeData(node.MAC, int32(AdapterTypeSerial), payload); err == nil {
+			if err := api.meshServer.SendNodeData(node.AdapterType, payload); err == nil {
 				sent++
 			}
 		}

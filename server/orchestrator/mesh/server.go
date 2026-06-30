@@ -787,19 +787,15 @@ func (ms *MeshServer) SetZoneRegistryPath(path string) {
 	}
 }
 
-// SendNodeData sends a serial command frame to a specific node MAC.
-// The target MAC is embedded at bytes [1:7] of the payload (after the opcode byte at [0]),
-// mirroring the OpNodeIdSet pattern used in ApproveEnrollment.
-func (ms *MeshServer) SendNodeData(mac []byte, dataType int32, data []byte) error {
+// SendNodeData sends a command frame to all nodes of the given DataType via broadcast.
+// The caller builds the full payload (opcode at [0], command bytes at [1+]).
+func (ms *MeshServer) SendNodeData(dataType int32, data []byte) error {
 	if ms.serialComm == nil {
 		return fmt.Errorf("mesh server is not running")
 	}
 
 	payload := make([]byte, MaxDataLength)
 	copy(payload, data)
-	if len(mac) == 6 && len(payload) >= 7 {
-		copy(payload[1:7], mac) // embed target MAC after opcode byte (mirrors OpNodeIdSet pattern)
-	}
 	msg := &MeshMessage{
 		ProtoVersion: 2,
 		MessageType:  MessageTypeSerialCmdBroadcast,
