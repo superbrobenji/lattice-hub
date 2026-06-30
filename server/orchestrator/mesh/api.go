@@ -117,6 +117,10 @@ func (api *APIServer) setupRoutes() {
 		admin.Use(func(next http.Handler) http.Handler {
 			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				bearer := r.Header.Get("Authorization")
+				if !strings.HasPrefix(bearer, "Bearer ") {
+					api.writeError(w, http.StatusUnauthorized, "admin key required")
+					return
+				}
 				token := strings.TrimPrefix(bearer, "Bearer ")
 				if token != api.adminKey {
 					api.writeError(w, http.StatusUnauthorized, "admin key required")
