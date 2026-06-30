@@ -1,16 +1,29 @@
 export interface INode {
-  mac: string;
-  macString: string;
-  adapterType: number;
+  id: number;
+  name: string;
+  zone: string;
+  online: boolean;
+  adapterType: string;    // "pir" | "led" | "relay" | "unknown" | "serial"
   uptime: number;
-  lastSeen: string; // ISO string from Go's time.Time JSON serialization
   hopCount: number;
-  online?: boolean;  // derived client-side, not from API
-  name?: string;     // not in API, kept optional for dev fixture compatibility
+  lastSeen: string;       // ISO 8601
 }
 
 export type INodes = INode[];
 
 export interface INodeCardProps {
   nodeData: INode;
+}
+
+export interface IZone {
+  id: string;
+  name: string;
+}
+
+export interface IEnrollment {
+  mac: string;            // "aa:bb:cc:dd:ee:ff"
+  publicKey: string;      // hex string
+  status: number;         // 0=pending, 1=approved, 2=rejected
+  receivedAt: number;     // Unix timestamp
+  approvedAt: number;     // Unix timestamp
 }

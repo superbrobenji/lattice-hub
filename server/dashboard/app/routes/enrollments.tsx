@@ -1,10 +1,6 @@
 import { useState, useEffect } from "react";
-import type { IEnrollment } from "../interfaces/IApiService";
-import {
-  getAllEnrollments,
-  approveEnrollment,
-  rejectEnrollment,
-} from "../services/apiService";
+import type { IEnrollment } from "../interfaces/INodes";
+import { apiService } from "../services/apiService";
 
 const STATUS_LABELS = ["Pending", "Approved", "Rejected"];
 const STATUS_COLORS = [
@@ -23,7 +19,7 @@ export default function Enrollments() {
     setLoading(true);
     setFetchError(null);
     try {
-      const data = await getAllEnrollments();
+      const data = await apiService.getPendingEnrollments();
       setEnrollments(data);
     } catch (e) {
       setFetchError(String(e));
@@ -39,7 +35,7 @@ export default function Enrollments() {
   const handleApprove = async (mac: string) => {
     setActionError(null);
     try {
-      await approveEnrollment(mac);
+      await apiService.approveEnrollment(mac, {});
       await refresh();
     } catch (e) {
       setActionError(String(e));
@@ -49,7 +45,7 @@ export default function Enrollments() {
   const handleReject = async (mac: string) => {
     setActionError(null);
     try {
-      await rejectEnrollment(mac);
+      await apiService.rejectEnrollment(mac);
       await refresh();
     } catch (e) {
       setActionError(String(e));
