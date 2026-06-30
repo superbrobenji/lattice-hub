@@ -91,3 +91,36 @@ jobs:
           API_KEY: ci-placeholder
           ADMIN_KEY: ci-placeholder
         run: docker compose build
+
+  sidecar-test:
+    name: Go test (sidecar)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: server/sidecar
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+        with:
+          go-version-file: server/sidecar/go.mod
+      - run: go vet ./...
+      - run: go test ./...
+
+  sidecar-lint:
+    name: Go lint (sidecar)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: server/sidecar
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+        with:
+          go-version-file: server/sidecar/go.mod
+      - uses: golangci/golangci-lint-action@55c2c1448f86e01eaae002a5a3a9624417608d84 # v6.5.2
+        with:
+          working-directory: server/sidecar
