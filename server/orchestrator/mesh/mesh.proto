@@ -9,7 +9,7 @@ message MeshMessage {
   bytes  originMacAddress  = 3;  // 6 bytes
   bytes  targetMacAddress  = 4;  // 6 bytes
   bytes  lastHopMacAddress = 5;  // 6 bytes
-  bytes  data              = 6;  // up to 12 bytes
+  bytes  data              = 6;  // up to 64 bytes
   uint32 hopCount          = 7;
   uint32 epochNum          = 8;  // sender boot epoch (was field 9 — CORRECTED to match firmware)
   uint32 seqNum            = 9;  // per-boot sequence counter (was field 10 — CORRECTED)
