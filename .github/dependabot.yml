@@ -1,0 +1,49 @@
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    labels:
+      - dependencies
+      - ci
+
+  - package-ecosystem: gomod
+    directory: /server/orchestrator
+    schedule:
+      interval: weekly
+    labels:
+      - dependencies
+      - go
+
+  - package-ecosystem: gomod
+    directory: /server/sidecar
+    schedule:
+      interval: weekly
+    labels:
+      - dependencies
+      - go
+
+  - package-ecosystem: npm
+    directory: /server/dashboard
+    schedule:
+      interval: weekly
+    labels:
+      - dependencies
+      - npm
+
+  - package-ecosystem: npm
+    directory: /server/artist-portal
+    schedule:
+      interval: weekly
+    labels:
+      - dependencies
+      - npm
+
+  - package-ecosystem: npm
+    directory: /server/ops-dashboard
+    schedule:
+      interval: weekly
+    labels:
+      - dependencies
+      - npm
