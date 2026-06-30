@@ -971,3 +971,36 @@ func TestIsMasterOnline_FalseAfterTimeout(t *testing.T) {
 		t.Error("IsMasterOnline() = true, want false after healthTimeout elapsed")
 	}
 }
+
+func TestV1NodeCommand_Returns501(t *testing.T) {
+	ms := newTestMeshServer(t)
+	mac := []byte{0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF}
+	ms.nodeRegistry.AssignNode(mac, 1, "test-node", "zone-a")
+
+	apiServer := NewAPIServer(ms, "", nil)
+	body := strings.NewReader(`{"action":"trigger"}`)
+	req := httptest.NewRequest("POST", "/api/v1/nodes/1/command", body)
+	req.Header.Set("Content-Type", "application/json")
+	rr := httptest.NewRecorder()
+	apiServer.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusNotImplemented {
+		t.Errorf("status = %d, want 501", rr.Code)
+	}
+}
+
+func TestV1ZoneCommand_Returns501(t *testing.T) {
+	ms := newTestMeshServer(t)
+	zone, _ := ms.GetZoneRegistry().Add("stage")
+
+	apiServer := NewAPIServer(ms, "", nil)
+	body := strings.NewReader(`{"action":"trigger"}`)
+	req := httptest.NewRequest("POST", "/api/v1/zones/"+zone.ID+"/command", body)
+	req.Header.Set("Content-Type", "application/json")
+	rr := httptest.NewRecorder()
+	apiServer.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusNotImplemented {
+		t.Errorf("status = %d, want 501", rr.Code)
+	}
+}
