@@ -75,7 +75,7 @@ services:
       - API_PORT=${API_PORT:-8080}
       - KAFKA_BROKER=kafka:9092
       - API_KEY=${API_KEY:?API_KEY is required}
-      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-http://localhost:5173,http://localhost:3000,http://localhost:3001}
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-http://localhost:5173,http://localhost:3000,http://localhost:3001,http://localhost:3002}
       - NODE_REGISTRY_PATH=data/nodes.json
       - ZONE_REGISTRY_PATH=data/zones.json
       - AUTH_REGISTRY_PATH=data/nodeauth.json
@@ -107,6 +107,44 @@ services:
     ports:
       - "3001:3001"
     read_only: true
+    tmpfs:
+      - /tmp
+      - /var/cache/nginx
+      - /var/run
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - kafka-net
+    restart: unless-stopped
+
+  sidecar:
+    build: ./sidecar
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    ports:
+      - "9000:9000"
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      - ADMIN_KEY=${ADMIN_KEY:?ADMIN_KEY is required}
+      - KAFKA_BROKER=kafka:9092
+    networks:
+      - kafka-net
+    restart: unless-stopped
+
+  ops-dashboard:
+    build:
+      context: ./ops-dashboard
+      args:
+        VITE_API_URL: ${OPS_API_URL:-http://localhost:8080}
+        VITE_SIDECAR_URL: ${SIDECAR_URL:-http://localhost:9000}
+    ports:
+      - "3002:3002"
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /var/cache/nginx
+      - /var/run
     security_opt:
       - no-new-privileges:true
     networks:

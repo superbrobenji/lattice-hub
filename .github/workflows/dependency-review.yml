@@ -14,3 +14,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/dependency-review-action@v4
+        with:
+          # github.com/docker/docker CVEs below are daemon-only code paths
+          # (AuthZ plugins, docker cp, archive). The sidecar uses only the
+          # client SDK (list/restart/logs) and never invokes these paths.
+          # No patched release exists as of docker/docker v28.5.2.
+          allow-ghsas: >-
+            GHSA-x744-4wpc-v9h2,
+            GHSA-x86f-5xw2-fm2r,
+            GHSA-rg2x-37c3-w2rh,
+            GHSA-pxq6-2prw-chj9,
+            GHSA-vp62-88p7-qqf5

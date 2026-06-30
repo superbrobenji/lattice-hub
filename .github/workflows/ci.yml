@@ -80,4 +80,5 @@ jobs:
         working-directory: server
         env:
           API_KEY: ci-placeholder
+          ADMIN_KEY: ci-placeholder
         run: docker compose build
