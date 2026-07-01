@@ -6,7 +6,7 @@
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
 [![Go 1.23+](https://img.shields.io/badge/Go-1.23+-00ADD8.svg)](https://go.dev/)
 
-Server-side counterpart to the [Lattice ESP32 firmware](https://github.com/superbrobenji/Lattice-nodes). Receives motion events from an ESP32-NOW mesh network over USB serial, stores them in Kafka, and exposes a REST API and web dashboard for monitoring and control.
+Server-side counterpart to the [Lattice ESP32 firmware](https://github.com/superbrobenji/lattice-nodes). Receives motion events from an ESP32-NOW mesh network over USB serial, stores them in Kafka, and exposes a REST API and web dashboard for monitoring and control.
 
 ## Architecture
 
