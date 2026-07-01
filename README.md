@@ -26,7 +26,7 @@ Server-side counterpart to the [Lattice ESP32 firmware](https://github.com/super
 ## Repository Structure
 
 ```
-motionSensorServer/
+lattice-hub/
 ├── server/
 │   ├── orchestrator/    # Go service — serial comms, mesh protocol, REST API, Kafka
 │   ├── dashboard/       # React Router app — web UI for node monitoring
