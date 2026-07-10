@@ -15,4 +15,4 @@ stub-seed: ## Start all services without hardware (pre-seeded test data)
 	$(STUB_ENV) $(COMPOSE) $(STUB_FLAGS) $(SEED_FLAGS) up -d
 
 down: ## Stop all services
-	$(COMPOSE) down
+	$(STUB_ENV) $(COMPOSE) down

@@ -8,3 +8,5 @@ services:
       - "/dev/null:/dev/ttyUSB0"
     environment:
       SERIAL_PORT: /dev/null
+      API_KEY: dev
+      ADMIN_KEY: dev
