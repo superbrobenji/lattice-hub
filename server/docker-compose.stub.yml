@@ -10,3 +10,6 @@ services:
       SERIAL_PORT: /dev/null
       API_KEY: dev
       ADMIN_KEY: dev
+
+  sidecar:
+    user: root
