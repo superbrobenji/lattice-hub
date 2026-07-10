@@ -23,6 +23,7 @@ func main() {
 	kafkaHandler := handlers.NewKafkaHandler(kafkaBroker)
 
 	r := mux.NewRouter()
+	r.Use(corsMiddleware)
 	r.Use(handlers.AuthMiddleware(adminKey))
 
 	r.HandleFunc("/sidecar/containers", containerHandler.ListContainers).Methods("GET")
@@ -35,6 +36,19 @@ func main() {
 	if err := http.ListenAndServe(":9000", r); err != nil {
 		log.Fatal(err)
 	}
+}
+
+func corsMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Authorization, Content-Type")
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
 }
 
 func envOrDefault(key, def string) string {
