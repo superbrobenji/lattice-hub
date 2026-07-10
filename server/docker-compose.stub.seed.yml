@@ -1,7 +1,10 @@
-# Seed overlay — mounts stub-data/ into the orchestrator's data directory.
+# Seed overlay — mounts stub-data/ into the orchestrator as read-only seed files.
 # Apply on top of docker-compose.stub.yml: make stub-seed
 
 services:
   orchestrator:
-    volumes: !reset
-      - ./stub-data:/app/data
+    volumes:
+      - ./stub-data:/app/stub-seed:ro
+    environment:
+      NODE_REGISTRY_PATH: /app/stub-seed/nodes.json
+      ZONE_REGISTRY_PATH: /app/stub-seed/zones.json
