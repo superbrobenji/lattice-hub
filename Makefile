@@ -1,0 +1,18 @@
+COMPOSE      := docker compose -f server/docker-compose.yml
+STUB_FLAGS   := -f server/docker-compose.stub.yml
+SEED_FLAGS   := -f server/docker-compose.stub.seed.yml
+STUB_ENV     := API_KEY=dev ADMIN_KEY=dev
+
+.PHONY: up stub stub-seed down
+
+up: ## Start all services (prod — requires API_KEY and ADMIN_KEY in env)
+	$(COMPOSE) up -d
+
+stub: ## Start all services without hardware (empty data)
+	$(STUB_ENV) $(COMPOSE) $(STUB_FLAGS) up -d
+
+stub-seed: ## Start all services without hardware (pre-seeded test data)
+	$(STUB_ENV) $(COMPOSE) $(STUB_FLAGS) $(SEED_FLAGS) up -d
+
+down: ## Stop all services
+	$(COMPOSE) down
