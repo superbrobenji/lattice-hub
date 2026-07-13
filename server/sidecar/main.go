@@ -33,7 +33,8 @@ func main() {
 	r.HandleFunc("/sidecar/containers/{name}/inspect", containerHandler.InspectContainer).Methods("GET")
 	r.HandleFunc("/sidecar/kafka/status", kafkaHandler.Status).Methods("GET")
 	r.HandleFunc("/sidecar/kafka/events/recent", kafkaHandler.RecentEvents).Methods("GET")
-	// /sidecar/services/health wired in Task 2 (health handler)
+	healthHandler := handlers.NewHealthHandler(containerHandler.DockerClient(), kafkaBroker, project)
+	r.HandleFunc("/sidecar/services/health", healthHandler.Services).Methods("GET")
 
 	log.Printf("Sidecar listening on :9000")
 	if err := http.ListenAndServe(":9000", corsMiddleware(r)); err != nil {
