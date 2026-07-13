@@ -127,8 +127,12 @@ func (h *ContainerHandler) GetStats(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	cpuDelta := float64(s.CPUStats.CPUUsage.TotalUsage - s.PreCPUStats.CPUUsage.TotalUsage)
-	sysDelta := float64(s.CPUStats.SystemUsage - s.PreCPUStats.SystemUsage)
+	cpuDeltaRaw := int64(s.CPUStats.CPUUsage.TotalUsage) - int64(s.PreCPUStats.CPUUsage.TotalUsage)
+	sysDeltaRaw := int64(s.CPUStats.SystemUsage) - int64(s.PreCPUStats.SystemUsage)
+	if cpuDeltaRaw < 0 { cpuDeltaRaw = 0 }
+	if sysDeltaRaw < 0 { sysDeltaRaw = 0 }
+	cpuDelta := float64(cpuDeltaRaw)
+	sysDelta := float64(sysDeltaRaw)
 	numCPUs := float64(s.CPUStats.OnlineCPUs)
 	if numCPUs == 0 {
 		numCPUs = float64(len(s.CPUStats.CPUUsage.PercpuUsage))
@@ -186,7 +190,11 @@ func (h *ContainerHandler) InspectContainer(w http.ResponseWriter, r *http.Reque
 	name := mux.Vars(r)["name"]
 	info, err := h.docker.ContainerInspect(context.Background(), name)
 	if err != nil {
-		http.Error(w, `{"error":"container not found"}`, http.StatusNotFound)
+		if client.IsErrNotFound(err) {
+			http.Error(w, `{"error":"container not found"}`, http.StatusNotFound)
+		} else {
+			http.Error(w, `{"error":"docker unavailable"}`, http.StatusServiceUnavailable)
+		}
 		return
 	}
 
@@ -232,7 +240,7 @@ func (h *ContainerHandler) InspectContainer(w http.ResponseWriter, r *http.Reque
 	}
 
 	WriteJSON(w, http.StatusOK, map[string]interface{}{
-		"id":            info.ID[:12],
+		"id":            func() string { if len(info.ID) > 12 { return info.ID[:12] }; return info.ID }(),
 		"name":          strings.TrimPrefix(info.Name, "/"),
 		"image":         info.Config.Image,
 		"created":       info.Created,
