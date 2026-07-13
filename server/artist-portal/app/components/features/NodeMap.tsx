@@ -5,14 +5,13 @@ import {
   Controls,
   useNodesState,
   useEdgesState,
-  type Node as FlowNode,
   type Edge,
   type NodeMouseHandler,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import type { Node } from "../../types/nodes";
-import { buildFlowNodes, inferEdges, applyDagreLayout } from "../../lib/topology";
-import { NodeMapNode } from "./NodeMapNode";
+import { buildFlowNodes, inferEdges, applyDagreLayout, type MeshNodeData } from "../../lib/topology";
+import { NodeMapNode, type MeshFlowNode } from "./NodeMapNode";
 import { NodeDetailPanel } from "./NodeDetailPanel";
 
 const NODE_TYPES = { meshNode: NodeMapNode };
@@ -24,9 +23,13 @@ interface Props {
 
 export function NodeMap({ nodes, serverOnline }: Props) {
   const [mounted, setMounted] = useState(false);
-  const [rfNodes, setRfNodes, onNodesChange] = useNodesState<FlowNode>([]);
+  const [rfNodes, setRfNodes, onNodesChange] = useNodesState<MeshFlowNode>([]);
   const [rfEdges, setRfEdges, onEdgesChange] = useEdgesState<Edge>([]);
-  const [selectedNode, setSelectedNode] = useState<Node | null>(null);
+  const [selectedNodeId, setSelectedNodeId] = useState<number | null>(null);
+
+  const selectedNode = selectedNodeId !== null
+    ? nodes.find((n) => n.id === selectedNodeId) ?? null
+    : null;
 
   useEffect(() => { setMounted(true); }, []);
 
@@ -35,14 +38,22 @@ export function NodeMap({ nodes, serverOnline }: Props) {
     const flowNodes = buildFlowNodes(nodes, serverOnline);
     const edges = inferEdges(nodes, serverOnline);
     const positioned = applyDagreLayout(flowNodes, edges);
-    setRfNodes(positioned);
+    setRfNodes(positioned as MeshFlowNode[]);
     setRfEdges(edges);
   }, [nodes, serverOnline, mounted, setRfNodes, setRfEdges]);
 
+  useEffect(() => {
+    if (selectedNodeId !== null && !nodes.find((n) => n.id === selectedNodeId)) {
+      setSelectedNodeId(null);
+    }
+  }, [nodes, selectedNodeId]);
+
   const onNodeClick: NodeMouseHandler = useCallback((_evt, node) => {
-    if ((node.data as { isMaster: boolean }).isMaster) return;
-    setSelectedNode((node.data as { node: Node }).node);
+    if ((node.data as MeshNodeData).isMaster) return;
+    setSelectedNodeId((node.data as MeshNodeData).node?.id ?? null);
   }, []);
+
+  const handlePanelClose = useCallback(() => setSelectedNodeId(null), []);
 
   if (!mounted) {
     return (
@@ -72,7 +83,7 @@ export function NodeMap({ nodes, serverOnline }: Props) {
       </ReactFlow>
 
       {selectedNode && (
-        <NodeDetailPanel node={selectedNode} onClose={() => setSelectedNode(null)} />
+        <NodeDetailPanel node={selectedNode} onClose={handlePanelClose} />
       )}
     </div>
   );
