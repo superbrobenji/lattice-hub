@@ -23,7 +23,6 @@ func main() {
 	kafkaHandler := handlers.NewKafkaHandler(kafkaBroker)
 
 	r := mux.NewRouter()
-	r.Use(corsMiddleware)
 	r.Use(handlers.AuthMiddleware(adminKey))
 
 	r.HandleFunc("/sidecar/containers", containerHandler.ListContainers).Methods("GET")
@@ -33,7 +32,7 @@ func main() {
 	r.HandleFunc("/sidecar/kafka/events/recent", kafkaHandler.RecentEvents).Methods("GET")
 
 	log.Printf("Sidecar listening on :9000")
-	if err := http.ListenAndServe(":9000", r); err != nil {
+	if err := http.ListenAndServe(":9000", corsMiddleware(r)); err != nil {
 		log.Fatal(err)
 	}
 }
