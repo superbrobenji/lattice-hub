@@ -26,7 +26,6 @@ function SwaggerWrapper() {
 
   useEffect(() => {
     import("swagger-ui-react").then((m) => {
-      // @ts-ignore TS2578 -- @ts-expect-error swagger-ui-react default export typing varies by version
       setSwaggerUI(() => m.default);
     });
   }, []);
