@@ -10,6 +10,7 @@
     "strict": true,
     "skipLibCheck": true,
     "rootDirs": [".", "./.react-router/types"],
-    "esModuleInterop": true
+    "esModuleInterop": true,
+    "noEmit": true
   }
 }
