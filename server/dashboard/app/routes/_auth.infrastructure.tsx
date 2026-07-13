@@ -1,3 +1,4 @@
+import { useOutlet } from "react-router";
 import type { Route } from "./+types/_auth.infrastructure";
 import { requireAuth } from "~/services/auth.server";
 import { sidecar } from "~/services/sidecar.server";
@@ -19,6 +20,8 @@ export async function loader({ request }: Route.LoaderArgs) {
 }
 
 export default function Infrastructure({ loaderData }: Route.ComponentProps) {
+  const outlet = useOutlet();
+  if (outlet) return <>{outlet}</>;
   const { containers, kafka } = loaderData;
   const { data: polled } = usePolling<typeof loaderData>("/infrastructure", 15_000);
   const activeContainers = polled?.containers ?? containers;

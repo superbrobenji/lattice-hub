@@ -1,3 +1,4 @@
+import { useOutlet } from "react-router";
 import type { Route } from "./+types/_auth.nodes";
 import { requireAuth } from "~/services/auth.server";
 import { orchestrator } from "~/services/orchestrator.server";
@@ -11,6 +12,8 @@ export async function loader({ request }: Route.LoaderArgs) {
 }
 
 export default function Nodes({ loaderData }: Route.ComponentProps) {
+  const outlet = useOutlet();
+  if (outlet) return <>{outlet}</>;
   const { nodes } = loaderData;
   return (
     <div>

@@ -15,12 +15,16 @@ export async function loader({ request }: Route.LoaderArgs) {
   await requireAuth(request);
   const url = new URL(request.url);
   const n = Math.min(parseInt(url.searchParams.get("n") ?? "50", 10), 250) as NOption;
-  const response = await sidecar.getRecentEvents(n);
-  return { events: response.events ?? [], topic: response.topic, n };
+  try {
+    const response = await sidecar.getRecentEvents(n);
+    return { events: response.events ?? [], topic: response.topic, n, error: null as string | null };
+  } catch {
+    return { events: [] as KafkaEvent[], topic: null as string | null, n, error: "Kafka unavailable" };
+  }
 }
 
 export default function Events({ loaderData }: Route.ComponentProps) {
-  const { events, topic, n } = loaderData;
+  const { events, topic, n, error } = loaderData;
   const [, setSearchParams] = useSearchParams();
   const [expanded, setExpanded] = useState<Set<number>>(new Set());
 
@@ -61,7 +65,9 @@ export default function Events({ loaderData }: Route.ComponentProps) {
       />
 
       <div className="space-y-1">
-        {activeEvents.length === 0 ? (
+        {error ? (
+          <p className="text-danger text-sm">{error}</p>
+        ) : activeEvents.length === 0 ? (
           <p className="text-muted text-sm">No events</p>
         ) : (
           activeEvents.map((event) => {
