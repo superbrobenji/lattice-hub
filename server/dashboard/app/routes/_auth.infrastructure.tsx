@@ -1,4 +1,3 @@
-import { Link } from "react-router";
 import type { Route } from "./+types/_auth.infrastructure";
 import { requireAuth } from "~/services/auth.server";
 import { sidecar } from "~/services/sidecar.server";
