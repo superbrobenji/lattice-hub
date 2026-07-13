@@ -54,7 +54,7 @@ export default function GuidesPage() {
         {GUIDES.map((g) => (
           <div
             key={g.title}
-            className="bg-surface border border-border rounded-lg p-5 hover:border-accent/40 transition-colors"
+            className="bg-surface border border-border rounded-lg p-5"
           >
             <h2 className="text-sm font-semibold text-white mb-2">{g.title}</h2>
             <p className="text-xs text-muted leading-relaxed mb-4">{g.description}</p>
