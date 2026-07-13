@@ -30,6 +30,7 @@ services:
       - kafka-net
 
   orchestrator:
+    container_name: orchestrator
     build: ./orchestrator
     depends_on:
       kafka:
@@ -61,7 +62,7 @@ services:
       - API_PORT=${API_PORT:-8080}
       - KAFKA_BROKER=kafka:9092
       - API_KEY=${API_KEY:?API_KEY is required}
-      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-http://localhost:5173,http://localhost:3000,http://localhost:3001,http://localhost:3002}
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-http://localhost:5173,http://localhost:3000,http://localhost:3001}
       - NODE_REGISTRY_PATH=data/nodes.json
       - ZONE_REGISTRY_PATH=data/zones.json
       - AUTH_REGISTRY_PATH=data/nodeauth.json
@@ -70,6 +71,7 @@ services:
     restart: unless-stopped
 
   dashboard:
+    container_name: dashboard
     build: ./dashboard
     depends_on:
       orchestrator:
@@ -80,12 +82,15 @@ services:
     security_opt:
       - no-new-privileges:true
     environment:
-      - VITE_API_URL=http://orchestrator:8080
-      - VITE_API_KEY=${API_KEY:?API_KEY is required}
+      - ORCHESTRATOR_URL=http://orchestrator:8080
+      - SIDECAR_URL=http://sidecar:9000
+      - API_KEY=${API_KEY:?API_KEY is required}
+      - ADMIN_KEY=${ADMIN_KEY:?ADMIN_KEY is required}
     networks:
       - kafka-net
 
   artist-portal:
+    container_name: artist-portal
     build:
       context: ./artist-portal
       args:
@@ -104,6 +109,7 @@ services:
     restart: unless-stopped
 
   sidecar:
+    container_name: sidecar
     build: ./sidecar
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
@@ -114,25 +120,7 @@ services:
     environment:
       - ADMIN_KEY=${ADMIN_KEY:?ADMIN_KEY is required}
       - KAFKA_BROKER=kafka:9092
-    networks:
-      - kafka-net
-    restart: unless-stopped
-
-  ops-dashboard:
-    build:
-      context: ./ops-dashboard
-      args:
-        VITE_API_URL: ${OPS_API_URL:-http://localhost:8080}
-        VITE_SIDECAR_URL: ${SIDECAR_URL:-http://localhost:9000}
-    ports:
-      - "3002:3002"
-    read_only: true
-    tmpfs:
-      - /tmp
-      - /var/cache/nginx
-      - /var/run
-    security_opt:
-      - no-new-privileges:true
+      - COMPOSE_PROJECT=${COMPOSE_PROJECT_NAME:-server}
     networks:
       - kafka-net
     restart: unless-stopped
