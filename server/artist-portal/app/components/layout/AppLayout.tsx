@@ -1,6 +1,7 @@
+import type { ReactNode } from "react";
 import { NavBar } from "./NavBar";
 
-export function AppLayout({ children }: { children: React.ReactNode }) {
+export function AppLayout({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-screen bg-base text-white">
       <NavBar />

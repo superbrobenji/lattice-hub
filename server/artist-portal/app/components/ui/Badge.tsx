@@ -1,5 +1,7 @@
+import type { ReactNode } from "react";
+
 interface Props {
-  children: React.ReactNode;
+  children: ReactNode;
   variant?: "default" | "type" | "zone";
 }
 
