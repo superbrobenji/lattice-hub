@@ -10,5 +10,5 @@ export async function sendNodeCommand(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ action, colour }),
   });
-  if (!res.ok) throw new Error("Command failed");
+  if (!res.ok) throw new Error(`Command failed: ${res.status}`);
 }

@@ -8,6 +8,7 @@ async function serverFetch<T>(path: string): Promise<T> {
     ? { Authorization: `Bearer ${API_KEY}` }
     : {};
   const res = await fetch(`${BASE_URL}${path}`, { headers });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const body = (await res.json()) as { success: boolean; data: T; error?: string };
   if (!body.success) throw new Error(body.error ?? "API error");
   return body.data;

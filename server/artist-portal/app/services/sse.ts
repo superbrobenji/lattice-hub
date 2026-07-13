@@ -15,7 +15,9 @@ export function connectSSE(
     es.addEventListener(name, (e: MessageEvent) => {
       try {
         onEvent({ type: name, ...JSON.parse(e.data) } as SSEEvent);
-      } catch {}
+      } catch (err) {
+        console.error('[SSE] event parse error', name, err);
+      }
     });
   });
 
