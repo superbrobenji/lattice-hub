@@ -2,15 +2,15 @@ import dagre from "@dagrejs/dagre";
 import type { Node as FlowNode, Edge } from "@xyflow/react";
 import type { Node } from "../types/nodes";
 
-export interface MeshNodeData {
+export interface MeshNodeData extends Record<string, unknown> {
   label: string;
   online: boolean;
   isMaster: boolean;
   node: Node | null;
 }
 
-export function buildFlowNodes(nodes: Node[], masterOnline: boolean): FlowNode[] {
-  const result: FlowNode[] = [
+export function buildFlowNodes(nodes: Node[], masterOnline: boolean): Array<FlowNode<MeshNodeData>> {
+  const result: Array<FlowNode<MeshNodeData>> = [
     {
       id: "master",
       type: "meshNode",
@@ -24,7 +24,7 @@ export function buildFlowNodes(nodes: Node[], masterOnline: boolean): FlowNode[]
       type: "meshNode",
       position: { x: 0, y: 0 },
       data: {
-        label: node.name || `Node ${node.id}`,
+        label: node.name !== "" ? node.name : `Node ${node.id}`,
         online: node.online,
         isMaster: false,
         node,
@@ -54,7 +54,7 @@ export function inferEdges(nodes: Node[], masterOnline: boolean): Edge[] {
     });
   }
 
-  const maxHop = byHop.size > 0 ? Math.max(...byHop.keys()) : 0;
+  const maxHop = Math.max(0, ...byHop.keys());
   for (let h = 2; h <= maxHop; h++) {
     const parents = [...(byHop.get(h - 1) ?? [])].sort((a, b) =>
       a.name.localeCompare(b.name),
@@ -94,7 +94,8 @@ export function applyDagreLayout(nodes: FlowNode[], edges: Edge[]): FlowNode[] {
   dagre.layout(g);
 
   return nodes.map((node) => {
-    const { x, y } = g.node(node.id);
-    return { ...node, position: { x: x - NODE_WIDTH / 2, y: y - NODE_HEIGHT / 2 } };
+    const pos = g.node(node.id);
+    if (!pos) return node;
+    return { ...node, position: { x: pos.x - NODE_WIDTH / 2, y: pos.y - NODE_HEIGHT / 2 } };
   });
 }
