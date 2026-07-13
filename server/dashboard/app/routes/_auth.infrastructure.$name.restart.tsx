@@ -9,6 +9,7 @@ export async function action({ request, params }: Route.ActionArgs) {
   return redirect(`/infrastructure/${params.name}`);
 }
 
-export async function loader() {
+export async function loader({ request }: Route.LoaderArgs) {
+  await requireAuth(request);
   return redirect("/infrastructure");
 }

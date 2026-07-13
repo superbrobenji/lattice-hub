@@ -11,10 +11,16 @@ import { useContainerStats } from "~/hooks/useContainerStats";
 
 type Tab = "overview" | "stats" | "logs";
 
+const TABS: { id: Tab; label: string }[] = [
+  { id: "overview", label: "Overview" },
+  { id: "stats", label: "Stats" },
+  { id: "logs", label: "Logs" },
+];
+
 export async function loader({ request, params }: Route.LoaderArgs) {
   await requireAuth(request);
   const url = new URL(request.url);
-  const tail = parseInt(url.searchParams.get("tail") ?? "100", 10);
+  const tail = parseInt(url.searchParams.get("tail") ?? "100", 10) || 100;
   const [inspect, stats, logs] = await Promise.allSettled([
     sidecar.inspectContainer(params.name),
     sidecar.getStats(params.name),
@@ -34,12 +40,6 @@ export default function ContainerDetail({ loaderData }: Route.ComponentProps) {
   const { stats } = useContainerStats(name, tab === "stats");
 
   const activeStats = stats ?? initialStats;
-
-  const TABS: { id: Tab; label: string }[] = [
-    { id: "overview", label: "Overview" },
-    { id: "stats", label: "Stats" },
-    { id: "logs", label: "Logs" },
-  ];
 
   return (
     <div>
@@ -81,6 +81,9 @@ export default function ContainerDetail({ loaderData }: Route.ComponentProps) {
       </div>
 
       {/* Overview tab */}
+      {tab === "overview" && !inspect && (
+        <p className="text-sm text-muted">Container details unavailable</p>
+      )}
       {tab === "overview" && inspect && (
         <div className="space-y-6">
           {/* Metadata */}
