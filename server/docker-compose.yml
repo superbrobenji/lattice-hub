@@ -89,14 +89,14 @@ services:
     build:
       context: ./artist-portal
       args:
-        VITE_API_URL: ${ARTIST_API_URL:-http://localhost:8080}
+        VITE_PUBLIC_API_URL: ${ARTIST_API_URL:-http://localhost:8080}
     ports:
       - "3001:3001"
-    read_only: true
+    environment:
+      - ORCHESTRATOR_URL=http://orchestrator:8080
+      - API_KEY=${API_KEY:?API_KEY is required}
     tmpfs:
       - /tmp
-      - /var/cache/nginx
-      - /var/run
     security_opt:
       - no-new-privileges:true
     networks:
