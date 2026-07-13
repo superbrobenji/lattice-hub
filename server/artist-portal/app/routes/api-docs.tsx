@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import type { MetaFunction } from "react-router";
+import "swagger-ui-react/swagger-ui.css";
 
 export const meta: MetaFunction = () => [
   { title: "API Reference — Lattice Artist Portal" },
