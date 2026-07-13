@@ -5,7 +5,7 @@ import { orchestrator } from "~/services/orchestrator.server";
 import { PageHeader } from "~/components/layout/PageHeader";
 import { StatusDot } from "~/components/ui/StatusDot";
 import { Badge } from "~/components/ui/Badge";
-import { nodeStatus, formatDateTime, fromUnix } from "~/utils/formatDateTime";
+import { nodeStatus, formatDateTime } from "~/utils/formatDateTime";
 
 export async function loader({ request, params }: Route.LoaderArgs) {
   await requireAuth(request);
