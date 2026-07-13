@@ -15,8 +15,9 @@ func main() {
 		log.Fatal("ADMIN_KEY is required")
 	}
 	kafkaBroker := envOrDefault("KAFKA_BROKER", "kafka:9092")
+	project := envOrDefault("COMPOSE_PROJECT", "server")
 
-	containerHandler, err := handlers.NewContainerHandler()
+	containerHandler, err := handlers.NewContainerHandler(project)
 	if err != nil {
 		log.Fatalf("Docker client init failed: %v", err)
 	}
@@ -28,8 +29,11 @@ func main() {
 	r.HandleFunc("/sidecar/containers", containerHandler.ListContainers).Methods("GET")
 	r.HandleFunc("/sidecar/containers/{name}/restart", containerHandler.RestartContainer).Methods("POST")
 	r.HandleFunc("/sidecar/containers/{name}/logs", containerHandler.GetLogs).Methods("GET")
+	r.HandleFunc("/sidecar/containers/{name}/stats", containerHandler.GetStats).Methods("GET")
+	r.HandleFunc("/sidecar/containers/{name}/inspect", containerHandler.InspectContainer).Methods("GET")
 	r.HandleFunc("/sidecar/kafka/status", kafkaHandler.Status).Methods("GET")
 	r.HandleFunc("/sidecar/kafka/events/recent", kafkaHandler.RecentEvents).Methods("GET")
+	// /sidecar/services/health wired in Task 2 (health handler)
 
 	log.Printf("Sidecar listening on :9000")
 	if err := http.ListenAndServe(":9000", corsMiddleware(r)); err != nil {
