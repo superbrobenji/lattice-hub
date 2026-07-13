@@ -1,12 +1,14 @@
-import type { INode, IZone, IEnrollment } from "../interfaces/INodes";
+import type { INode, IZone, IEnrollment, ServerStatus } from "~/types/nodes";
 
-const BASE_URL = import.meta.env.VITE_API_URL ?? "http://localhost:8080";
+const BASE_URL = process.env.ORCHESTRATOR_URL ?? "http://localhost:8080";
+const API_KEY = process.env.API_KEY ?? "";
 
 async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE_URL}${path}`, {
     ...options,
     headers: {
-      Authorization: `Bearer ${import.meta.env.VITE_API_KEY ?? ""}`,
+      Authorization: `Bearer ${API_KEY}`,
+      "Content-Type": "application/json",
       ...(options?.headers as Record<string, string> ?? {}),
     },
   });
@@ -15,32 +17,32 @@ async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
   return body.data as T;
 }
 
-export const apiService = {
+export const orchestrator = {
   getNodes: () => apiFetch<INode[]>("/api/v1/nodes"),
   getNode: (id: number) => apiFetch<INode>(`/api/v1/nodes/${id}`),
   updateNode: (id: number, patch: Partial<{ name: string; zone: string; type: string }>) =>
     apiFetch<INode>(`/api/v1/nodes/${id}`, {
       method: "PATCH",
-      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(patch),
     }),
-  deleteNode: (id: number) => apiFetch(`/api/v1/nodes/${id}`, { method: "DELETE" }),
   getZones: () => apiFetch<IZone[]>("/api/v1/zones"),
-  createZone: (name: string) =>
-    apiFetch<IZone>("/api/v1/zones", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name }),
-    }),
-  deleteZone: (id: string) => apiFetch(`/api/v1/zones/${id}`, { method: "DELETE" }),
   getPendingEnrollments: () => apiFetch<IEnrollment[]>("/api/v1/enrollments/pending"),
-  approveEnrollment: (mac: string, params: { name?: string; zone?: string; type?: string; nodeId?: number }) =>
+  approveEnrollment: (mac: string, params: { name?: string; zone?: string; type?: string }) =>
     apiFetch(`/api/v1/enrollments/${mac}/approve`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(params),
     }),
   rejectEnrollment: (mac: string) =>
     apiFetch(`/api/v1/enrollments/${mac}/reject`, { method: "POST" }),
-  getStatus: () => apiFetch("/api/v1/status"),
+  getStatus: () => apiFetch<ServerStatus>("/api/v1/status"),
+  startServer: () =>
+    fetch(`${BASE_URL}/server/start`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${API_KEY}` },
+    }),
+  stopServer: () =>
+    fetch(`${BASE_URL}/server/stop`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${API_KEY}` },
+    }),
 };
