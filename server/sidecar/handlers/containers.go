@@ -12,6 +12,7 @@ import (
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/client"
+	"github.com/docker/docker/errdefs"
 	"github.com/gorilla/mux"
 )
 
@@ -190,7 +191,7 @@ func (h *ContainerHandler) InspectContainer(w http.ResponseWriter, r *http.Reque
 	name := mux.Vars(r)["name"]
 	info, err := h.docker.ContainerInspect(context.Background(), name)
 	if err != nil {
-		if client.IsErrNotFound(err) {
+		if errdefs.IsNotFound(err) {
 			http.Error(w, `{"error":"container not found"}`, http.StatusNotFound)
 		} else {
 			http.Error(w, `{"error":"docker unavailable"}`, http.StatusServiceUnavailable)

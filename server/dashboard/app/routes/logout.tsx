@@ -1,8 +1,7 @@
 import { redirect } from "react-router";
-import type { Route } from "./+types/logout";
 import { clearSessionCookie } from "~/services/auth.server";
 
-export async function action(_: Route.ActionArgs) {
+export async function action() {
   return redirect("/login", {
     headers: { "Set-Cookie": clearSessionCookie() },
   });

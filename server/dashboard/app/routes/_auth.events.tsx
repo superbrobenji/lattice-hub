@@ -46,7 +46,8 @@ function EventsList({ events, error }: { events: KafkaEvent[]; error: string | n
   const toggle = (offset: number) =>
     setExpanded((prev) => {
       const next = new Set(prev);
-      next.has(offset) ? next.delete(offset) : next.add(offset);
+      if (next.has(offset)) next.delete(offset);
+      else next.add(offset);
       return next;
     });
 

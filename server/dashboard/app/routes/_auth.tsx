@@ -1,4 +1,4 @@
-import { redirect, Outlet } from "react-router";
+import { Outlet } from "react-router";
 import type { Route } from "./+types/_auth";
 import { requireAuth } from "~/services/auth.server";
 import { AppLayout } from "~/components/layout/AppLayout";

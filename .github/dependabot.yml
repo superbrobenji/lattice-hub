@@ -39,11 +39,3 @@ updates:
     labels:
       - dependencies
       - npm
-
-  - package-ecosystem: npm
-    directory: /server/ops-dashboard
-    schedule:
-      interval: weekly
-    labels:
-      - dependencies
-      - npm
