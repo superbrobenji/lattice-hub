@@ -33,7 +33,7 @@ func main() {
 	r.HandleFunc("/sidecar/containers/{name}/inspect", containerHandler.InspectContainer).Methods("GET")
 	r.HandleFunc("/sidecar/kafka/status", kafkaHandler.Status).Methods("GET")
 	r.HandleFunc("/sidecar/kafka/events/recent", kafkaHandler.RecentEvents).Methods("GET")
-	healthHandler := handlers.NewHealthHandler(containerHandler.DockerClient(), kafkaBroker, project)
+	healthHandler := handlers.NewHealthHandler(containerHandler.DockerClient(), kafkaBroker)
 	r.HandleFunc("/sidecar/services/health", healthHandler.Services).Methods("GET")
 
 	log.Printf("Sidecar listening on :9000")

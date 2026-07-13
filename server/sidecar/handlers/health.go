@@ -13,13 +13,17 @@ import (
 )
 
 type HealthHandler struct {
-	docker  *client.Client
-	broker  string
-	project string
+	docker     *client.Client
+	broker     string
+	httpClient *http.Client
 }
 
-func NewHealthHandler(docker *client.Client, broker, project string) *HealthHandler {
-	return &HealthHandler{docker: docker, broker: broker, project: project}
+func NewHealthHandler(docker *client.Client, broker string) *HealthHandler {
+	return &HealthHandler{
+		docker:     docker,
+		broker:     broker,
+		httpClient: &http.Client{Timeout: 5 * time.Second},
+	}
 }
 
 type ServiceHealth struct {
@@ -38,9 +42,6 @@ type serviceSpec struct {
 }
 
 func (h *HealthHandler) Services(w http.ResponseWriter, r *http.Request) {
-	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
-	defer cancel()
-
 	specs := []serviceSpec{
 		{name: "orchestrator", httpURL: "http://orchestrator:8080/health"},
 		{name: "kafka", httpURL: ""},
@@ -55,6 +56,8 @@ func (h *HealthHandler) Services(w http.ResponseWriter, r *http.Request) {
 		wg.Add(1)
 		go func(idx int, s serviceSpec) {
 			defer wg.Done()
+			ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+			defer cancel()
 			results[idx] = h.probeService(ctx, s)
 		}(i, spec)
 	}
@@ -91,7 +94,7 @@ func (h *HealthHandler) probeService(ctx context.Context, spec serviceSpec) Serv
 		// self — no external probe
 	default:
 		if spec.httpURL != "" {
-			status, latency, detail := probeHTTP(ctx, spec.httpURL)
+			status, latency, detail := h.probeHTTP(ctx, spec.httpURL)
 			svc.HTTPStatus = &status
 			svc.LatencyMs = &latency
 			svc.Detail = detail
@@ -101,15 +104,14 @@ func (h *HealthHandler) probeService(ctx context.Context, spec serviceSpec) Serv
 	return svc
 }
 
-func probeHTTP(ctx context.Context, url string) (status int, latencyMs int64, detail interface{}) {
-	httpClient := &http.Client{Timeout: 5 * time.Second}
+func (h *HealthHandler) probeHTTP(ctx context.Context, url string) (status int, latencyMs int64, detail interface{}) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		s := 0
 		return s, 0, map[string]string{"error": err.Error()}
 	}
 	start := time.Now()
-	resp, err := httpClient.Do(req)
+	resp, err := h.httpClient.Do(req)
 	latencyMs = time.Since(start).Milliseconds()
 	if err != nil {
 		s := 0
