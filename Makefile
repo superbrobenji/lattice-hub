@@ -9,10 +9,10 @@ up: ## Start all services (prod — requires API_KEY and ADMIN_KEY in env)
 	$(COMPOSE) up -d
 
 stub: ## Start all services without hardware (empty data)
-	$(STUB_ENV) $(COMPOSE) $(STUB_FLAGS) up -d
+	$(STUB_ENV) $(COMPOSE) $(STUB_FLAGS) up -d --build
 
 stub-seed: ## Start all services without hardware (pre-seeded test data)
-	$(STUB_ENV) $(COMPOSE) $(STUB_FLAGS) $(SEED_FLAGS) up -d
+	$(STUB_ENV) $(COMPOSE) $(STUB_FLAGS) $(SEED_FLAGS) up -d --build
 
 down: ## Stop all services
 	$(STUB_ENV) $(COMPOSE) down
