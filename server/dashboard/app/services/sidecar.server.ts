@@ -24,14 +24,14 @@ export const sidecar = {
       (r) => r.containers
     ),
   restartContainer: (name: string) =>
-    sidecarFetch(`/sidecar/containers/${name}/restart`, { method: "POST" }),
+    sidecarFetch(`/sidecar/containers/${encodeURIComponent(name)}/restart`, { method: "POST" }),
   getStats: (name: string) =>
-    sidecarFetch<ContainerStats>(`/sidecar/containers/${name}/stats`),
+    sidecarFetch<ContainerStats>(`/sidecar/containers/${encodeURIComponent(name)}/stats`),
   inspectContainer: (name: string) =>
-    sidecarFetch<ContainerInspect>(`/sidecar/containers/${name}/inspect`),
+    sidecarFetch<ContainerInspect>(`/sidecar/containers/${encodeURIComponent(name)}/inspect`),
   getLogs: async (name: string, tail = 100): Promise<string> => {
     const res = await fetch(
-      `${BASE_URL}/sidecar/containers/${name}/logs?tail=${tail}`,
+      `${BASE_URL}/sidecar/containers/${encodeURIComponent(name)}/logs?tail=${tail}`,
       { headers: { Authorization: `Bearer ${ADMIN_KEY}` } }
     );
     if (!res.ok) throw new Error(`logs → ${res.status}`);

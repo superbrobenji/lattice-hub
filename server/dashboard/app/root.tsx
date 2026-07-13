@@ -37,7 +37,7 @@ export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
       ? "404 — Page not found"
       : error.statusText || "Error"
     : error instanceof Error
-    ? error.message
+    ? (import.meta.env.DEV ? error.message : "An unexpected error occurred")
     : "An unexpected error occurred";
 
   return (

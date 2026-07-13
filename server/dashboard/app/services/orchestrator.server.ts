@@ -12,6 +12,7 @@ async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
       ...(options?.headers as Record<string, string> ?? {}),
     },
   });
+  if (!res.ok) throw new Error(`orchestrator ${path} → ${res.status}`);
   const body = await res.json();
   if (!body.success) throw new Error(body.error ?? "request failed");
   return body.data as T;
@@ -35,14 +36,18 @@ export const orchestrator = {
   rejectEnrollment: (mac: string) =>
     apiFetch(`/api/v1/enrollments/${mac}/reject`, { method: "POST" }),
   getStatus: () => apiFetch<ServerStatus>("/api/v1/status"),
-  startServer: () =>
-    fetch(`${BASE_URL}/server/start`, {
+  startServer: async () => {
+    const res = await fetch(`${BASE_URL}/server/start`, {
       method: "POST",
       headers: { Authorization: `Bearer ${API_KEY}` },
-    }),
-  stopServer: () =>
-    fetch(`${BASE_URL}/server/stop`, {
+    });
+    if (!res.ok) throw new Error(`start failed: ${res.status}`);
+  },
+  stopServer: async () => {
+    const res = await fetch(`${BASE_URL}/server/stop`, {
       method: "POST",
       headers: { Authorization: `Bearer ${API_KEY}` },
-    }),
+    });
+    if (!res.ok) throw new Error(`stop failed: ${res.status}`);
+  },
 };
