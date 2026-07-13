@@ -1,5 +1,5 @@
 import { useFetcher } from "react-router";
-import type { Route } from "./+types/_auth.server";
+import type { Route } from "./+types/_auth.server-controls";
 import { requireAuth } from "~/services/auth.server";
 import { orchestrator } from "~/services/orchestrator.server";
 import { PageHeader } from "~/components/layout/PageHeader";
