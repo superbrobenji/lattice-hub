@@ -1,0 +1,101 @@
+import dagre from "@dagrejs/dagre";
+import type { Node as FlowNode, Edge } from "@xyflow/react";
+import type { Node } from "../types/nodes";
+
+export interface MeshNodeData extends Record<string, unknown> {
+  label: string;
+  online: boolean;
+  isMaster: boolean;
+  node: Node | null;
+}
+
+export function buildFlowNodes(nodes: Node[], masterOnline: boolean): Array<FlowNode<MeshNodeData>> {
+  const result: Array<FlowNode<MeshNodeData>> = [
+    {
+      id: "master",
+      type: "meshNode",
+      position: { x: 0, y: 0 },
+      data: { label: "Master", online: masterOnline, isMaster: true, node: null },
+    },
+  ];
+  for (const node of nodes) {
+    result.push({
+      id: String(node.id),
+      type: "meshNode",
+      position: { x: 0, y: 0 },
+      data: {
+        label: node.name !== "" ? node.name : `Node ${node.id}`,
+        online: node.online,
+        isMaster: false,
+        node,
+      },
+    });
+  }
+  return result;
+}
+
+export function inferEdges(nodes: Node[], masterOnline: boolean): Edge[] {
+  const edges: Edge[] = [];
+
+  const byHop = new Map<number, Node[]>();
+  for (const node of nodes) {
+    const list = byHop.get(node.hopCount) ?? [];
+    list.push(node);
+    byHop.set(node.hopCount, list);
+  }
+
+  for (const node of byHop.get(1) ?? []) {
+    const connected = masterOnline && node.online;
+    edges.push({
+      id: `master-${node.id}`,
+      source: "master",
+      target: String(node.id),
+      style: { stroke: connected ? "#ffffff" : "#ef4444", strokeWidth: 1.5 },
+    });
+  }
+
+  const maxHop = Math.max(0, ...byHop.keys());
+  for (let h = 2; h <= maxHop; h++) {
+    const parents = [...(byHop.get(h - 1) ?? [])].sort((a, b) =>
+      a.name.localeCompare(b.name),
+    );
+    for (const node of byHop.get(h) ?? []) {
+      const sameZone = parents.filter((p) => p.zone === node.zone);
+      const parent = sameZone[0] ?? parents[0];
+      if (!parent) continue;
+      const connected = parent.online && node.online;
+      edges.push({
+        id: `${parent.id}-${node.id}`,
+        source: String(parent.id),
+        target: String(node.id),
+        style: { stroke: connected ? "#ffffff" : "#ef4444", strokeWidth: 1.5 },
+      });
+    }
+  }
+
+  return edges;
+}
+
+const NODE_WIDTH = 130;
+const NODE_HEIGHT = 60;
+
+export function applyDagreLayout(nodes: FlowNode[], edges: Edge[]): FlowNode[] {
+  const g = new dagre.graphlib.Graph();
+  g.setDefaultEdgeLabel(() => ({}));
+  g.setGraph({ rankdir: "TB", nodesep: 80, ranksep: 100 });
+
+  for (const node of nodes) {
+    g.setNode(node.id, { width: NODE_WIDTH, height: NODE_HEIGHT });
+  }
+  for (const edge of edges) {
+    g.setEdge(edge.source, edge.target);
+  }
+
+  dagre.layout(g);
+
+  return nodes.map((node) => {
+    const pos = g.node(node.id);
+    if (!pos) return node;
+    return { ...node, position: { x: pos.x - NODE_WIDTH / 2, y: pos.y - NODE_HEIGHT / 2 } };
+  });
+}
