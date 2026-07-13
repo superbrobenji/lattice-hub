@@ -5,6 +5,7 @@ import { AppLayout } from "./components/layout/AppLayout";
 
 export const links: LinksFunction = () => [
   { rel: "stylesheet", href: appCss },
+  { rel: "icon", href: "/favicon.ico", type: "image/x-icon" },
 ];
 
 export default function Root() {
