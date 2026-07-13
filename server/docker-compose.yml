@@ -80,8 +80,10 @@ services:
     security_opt:
       - no-new-privileges:true
     environment:
-      - VITE_API_URL=http://orchestrator:8080
-      - VITE_API_KEY=${API_KEY:?API_KEY is required}
+      - ORCHESTRATOR_URL=http://orchestrator:8080
+      - SIDECAR_URL=http://sidecar:9000
+      - API_KEY=${API_KEY:?API_KEY is required}
+      - ADMIN_KEY=${ADMIN_KEY:?ADMIN_KEY is required}
     networks:
       - kafka-net
 
@@ -114,25 +116,7 @@ services:
     environment:
       - ADMIN_KEY=${ADMIN_KEY:?ADMIN_KEY is required}
       - KAFKA_BROKER=kafka:9092
-    networks:
-      - kafka-net
-    restart: unless-stopped
-
-  ops-dashboard:
-    build:
-      context: ./ops-dashboard
-      args:
-        VITE_API_URL: ${OPS_API_URL:-http://localhost:8080}
-        VITE_SIDECAR_URL: ${SIDECAR_URL:-http://localhost:9000}
-    ports:
-      - "3002:3002"
-    read_only: true
-    tmpfs:
-      - /tmp
-      - /var/cache/nginx
-      - /var/run
-    security_opt:
-      - no-new-privileges:true
+      - COMPOSE_PROJECT=${COMPOSE_PROJECT_NAME:-server}
     networks:
       - kafka-net
     restart: unless-stopped
