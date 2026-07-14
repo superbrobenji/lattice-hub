@@ -102,7 +102,12 @@ export function NodeDetailPanel({ node, zones, onClose, onEdit }: Props) {
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   useEffect(() => {
-    const handler = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    const handler = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      const active = document.activeElement;
+      if (active instanceof HTMLInputElement || active instanceof HTMLSelectElement) return;
+      onClose();
+    };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
   }, [onClose]);
