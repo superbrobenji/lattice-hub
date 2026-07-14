@@ -226,6 +226,40 @@ func (s *Simulator) handleSerialOpLocked(msg *mesh.MeshMessage) {
 	// OpTxPowerSet and anything else: ignore.
 }
 
+// SpawnNode adds an unenrolled node that immediately starts broadcasting
+// enrollment requests.
+func (s *Simulator) SpawnNode(mac, typ string) error {
+	n, err := NewEnrollingNode(mac, typ)
+	if err != nil {
+		return err
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if _, exists := s.nodes[n.MACString]; exists {
+		return fmt.Errorf("node %s already exists", mac)
+	}
+	s.nodes[n.MACString] = n
+	return nil
+}
+
+// FireMotion sends a PIR motion frame from the given node.
+func (s *Simulator) FireMotion(mac string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	n, ok := s.nodes[mac]
+	if !ok {
+		return fmt.Errorf("node %s not found", mac)
+	}
+	if !n.Enrolled || n.Offline {
+		return fmt.Errorf("node %s cannot send motion (enrolled=%v offline=%v)", mac, n.Enrolled, n.Offline)
+	}
+	if s.comm == nil {
+		return fmt.Errorf("orchestrator not connected")
+	}
+	s.writeLocked(motionMsg(n))
+	return nil
+}
+
 // SetOffline flips a node's power state. Offline nodes send nothing and ack nothing.
 func (s *Simulator) SetOffline(mac string, offline bool) error {
 	s.mu.Lock()
