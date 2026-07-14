@@ -49,7 +49,7 @@ export function EnrollmentTable({ enrollments, zones, nextFreeId, showActions }:
     });
   }
 
-  function submitApprove(e: React.FormEvent) {
+  function submitApprove(e: { preventDefault: () => void }) {
     e.preventDefault();
     if (!approveForm) return;
     approveFetcher.submit(
