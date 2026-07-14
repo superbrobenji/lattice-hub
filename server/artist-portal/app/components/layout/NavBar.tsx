@@ -2,6 +2,8 @@ import { NavLink } from "react-router";
 
 const NAV_ITEMS = [
   { to: "/", label: "Live Tracker", end: true },
+  { to: "/zones", label: "Zones", end: false },
+  { to: "/enrollments", label: "Enrollments", end: false },
   { to: "/api-docs", label: "API Reference", end: false },
   { to: "/guides", label: "Integration Guides", end: false },
 ];

@@ -9,7 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
-	"github.com/superbrobenji/lattice-protocol/opcodes"
+	"github.com/superbrobenji/lattice-protocol/adapter"
 )
 
 func (api *APIServer) v1GetNodes(w http.ResponseWriter, r *http.Request) {
@@ -131,7 +131,7 @@ func (api *APIServer) v1NodeCommand(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Validate: only output adapters accept commands
-	if !adapterIsOutput(node.AdapterType) {
+	if !adapter.IsOutput(node.AdapterType) {
 		api.writeError(w, http.StatusBadRequest, "node adapter type does not accept commands")
 		return
 	}
@@ -145,17 +145,17 @@ func (api *APIServer) v1NodeCommand(w http.ResponseWriter, r *http.Request) {
 			api.writeError(w, http.StatusBadRequest, "led_solid requires colour [r,g,b]")
 			return
 		}
-		payload[0] = opcodes.OpLEDSolid
+		payload[0] = OpLEDSolid
 		payload[1] = body.Colour[0]
 		payload[2] = body.Colour[1]
 		payload[3] = body.Colour[2]
 	case "led_off":
-		payload[0] = opcodes.OpLEDOff
+		payload[0] = OpLEDOff
 	case "relay_on":
-		payload[0] = opcodes.OpRelaySet
+		payload[0] = OpRelaySet
 		payload[1] = 0x01
 	case "relay_off":
-		payload[0] = opcodes.OpRelaySet
+		payload[0] = OpRelaySet
 		payload[1] = 0x00
 	default:
 		api.writeError(w, http.StatusBadRequest, "unknown action: "+body.Action)
@@ -204,11 +204,6 @@ func (api *APIServer) v1GetCommandStatus(w http.ResponseWriter, r *http.Request)
 		data["ackedAt"] = cmd.AckedAt.Unix()
 	}
 	api.writeJSON(w, http.StatusOK, APIResponse{Success: true, Data: data})
-}
-
-// adapterIsOutput returns true for adapter types that receive commands from the server.
-func adapterIsOutput(t int32) bool {
-	return t == AdapterTypeLED || t == AdapterTypeRelay
 }
 
 // parseNodeID converts a URL path segment to a uint8 node ID (1-255).

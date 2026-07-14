@@ -60,6 +60,38 @@ describe("inferEdges", () => {
     const h2edge = edges.find((e) => e.target === "3");
     expect(h2edge?.source).toBe("2"); // Alpha sorts before Bravo
   });
+
+  it("uses parentId when present (exact route known)", () => {
+    // Node 3 at hop 2 with parentId=2 — should connect to node 2 regardless of zone
+    const nodes = [
+      n({ id: 1, hopCount: 1, zone: "zone-a" }),
+      n({ id: 2, hopCount: 1, zone: "zone-b" }),
+      n({ id: 3, hopCount: 2, zone: "zone-a", parentId: 2 }),
+    ];
+    const edges = inferEdges(nodes, true);
+    const h2edge = edges.find((e) => e.target === "3");
+    expect(h2edge?.source).toBe("2"); // parentId overrides zone match
+  });
+
+  it("falls back to master when parentId set but parent not in list", () => {
+    const nodes = [
+      n({ id: 3, hopCount: 2, zone: "zone-a", parentId: 99 }), // 99 not in list
+    ];
+    const edges = inferEdges(nodes, true);
+    const h2edge = edges.find((e) => e.target === "3");
+    expect(h2edge?.source).toBe("master");
+  });
+
+  it("falls back to heuristic when parentId absent", () => {
+    // No parentId — existing hop+zone heuristic applies
+    const nodes = [
+      n({ id: 1, hopCount: 1, zone: "entrance" }),
+      n({ id: 3, hopCount: 2, zone: "entrance" }),
+    ];
+    const edges = inferEdges(nodes, true);
+    const h2edge = edges.find((e) => e.target === "3");
+    expect(h2edge?.source).toBe("1");
+  });
 });
 
 describe("buildFlowNodes", () => {

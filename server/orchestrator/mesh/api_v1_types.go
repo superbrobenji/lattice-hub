@@ -12,6 +12,7 @@ type NodeV1 struct {
 	HopCount uint32    `json:"hopCount"`
 	Uptime   uint32    `json:"uptime"`
 	LastSeen time.Time `json:"lastSeen"`
+	ParentID *uint8    `json:"parentId,omitempty"`
 }
 
 // adapterTypeToString converts an internal adapter type to the artist-facing string.
@@ -56,5 +57,6 @@ func nodeToV1(n *NodeInfo, timeout time.Duration) NodeV1 {
 		HopCount: n.HopCount,
 		Uptime:   n.Uptime,
 		LastSeen: n.LastSeen,
+		ParentID: n.ParentID,
 	}
 }

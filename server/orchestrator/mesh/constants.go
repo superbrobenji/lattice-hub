@@ -4,14 +4,19 @@ import (
 	"fmt"
 
 	"github.com/superbrobenji/lattice-protocol/adapter"
+	"github.com/superbrobenji/lattice-protocol/message"
 	"github.com/superbrobenji/lattice-protocol/opcodes"
 )
 
-// Message Types
+// Message Types — canonical values from lattice-protocol/message.
+// uint32 cast required: MeshMessage.MessageType (protobuf) is uint32.
 const (
-	MessageTypeAdapterData        uint32 = 0 // Normal adapter-originated data
-	MessageTypeMasterBeacon       uint32 = 1 // Mesh-internal heartbeat from master
-	MessageTypeSerialCmdBroadcast uint32 = 3 // Server→device: serial command to broadcast adapter data
+	MessageTypeAdapterData        = uint32(message.MeshTypeAdapterData)        // 0
+	MessageTypeMasterBeacon       = uint32(message.MeshTypeMasterBeacon)       // 1
+	MessageTypeEnrollment         = uint32(message.MeshTypeEnrollment)         // 2
+	MessageTypeSerialCmdBroadcast = uint32(message.MeshTypeSerialCmdBroadcast) // 3
+	MessageTypeJoinAck            = uint32(message.MeshTypeJoinAck)            // 4
+	MessageTypeRouteReport        = uint32(message.MeshTypeRouteReport)        // 5
 )
 
 // Adapter type aliases — use shared protocol constants.
@@ -43,10 +48,12 @@ const (
 	OpCommandAck = opcodes.OpCommandAck // Node → server: acknowledge a received command
 )
 
-// Enrollment Message Type Constants
+// Output adapter command opcodes — aliases from lattice-protocol/opcodes.
 const (
-	MessageTypeEnrollment uint32 = 2 // Node→master: public key announcement
-	MessageTypeJoinAck    uint32 = 4 // Server→master→node: enrollment approved (pubkey present) or rejected (pubkey absent)
+	OpLEDSolid    = opcodes.OpLEDSolid   // 0xD0
+	OpLEDOff      = opcodes.OpLEDOff     // 0xD1
+	OpRelaySet    = opcodes.OpRelaySet   // 0xD8
+	OpRouteReport = opcodes.OpRouteReport // 0xB3
 )
 
 // Broadcast MAC address (all FF bytes)

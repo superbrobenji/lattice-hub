@@ -5,7 +5,7 @@ import (
 	"net/http"
 
 	"github.com/gorilla/mux"
-	"github.com/superbrobenji/lattice-protocol/opcodes"
+	"github.com/superbrobenji/lattice-protocol/adapter"
 )
 
 func (api *APIServer) v1GetZones(w http.ResponseWriter, r *http.Request) {
@@ -77,17 +77,17 @@ func (api *APIServer) v1ZoneCommand(w http.ResponseWriter, r *http.Request) {
 			api.writeError(w, http.StatusBadRequest, "led_solid requires colour [r,g,b]")
 			return
 		}
-		payload[0] = opcodes.OpLEDSolid
+		payload[0] = OpLEDSolid
 		payload[1] = body.Colour[0]
 		payload[2] = body.Colour[1]
 		payload[3] = body.Colour[2]
 	case "led_off":
-		payload[0] = opcodes.OpLEDOff
+		payload[0] = OpLEDOff
 	case "relay_on":
-		payload[0] = opcodes.OpRelaySet
+		payload[0] = OpRelaySet
 		payload[1] = 0x01
 	case "relay_off":
-		payload[0] = opcodes.OpRelaySet
+		payload[0] = OpRelaySet
 		payload[1] = 0x00
 	default:
 		api.writeError(w, http.StatusBadRequest, "unknown action: "+body.Action)
@@ -97,7 +97,7 @@ func (api *APIServer) v1ZoneCommand(w http.ResponseWriter, r *http.Request) {
 	nodes := api.meshServer.GetNodeRegistry().GetNodesByZone(id)
 	sent := 0
 	for _, node := range nodes {
-		if adapterIsOutput(node.AdapterType) {
+		if adapter.IsOutput(node.AdapterType) {
 			if err := api.meshServer.SendNodeData(node.AdapterType, payload); err == nil {
 				sent++
 			}

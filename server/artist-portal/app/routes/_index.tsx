@@ -1,37 +1,39 @@
 import { useState } from "react";
 import { useLoaderData } from "react-router";
 import type { LoaderFunctionArgs, MetaFunction } from "react-router";
-import { getNodes, getStatus } from "../services/orchestrator.server";
+import { getNodes, getStatus, getZones } from "../services/orchestrator.server";
 import { NodeCard } from "../components/features/NodeCard";
 import { EventFeed } from "../components/features/EventFeed";
 import { NodeMap } from "../components/features/NodeMap";
 import { useLiveMesh } from "../hooks/useLiveMesh";
 import { StatusDot } from "../components/ui/StatusDot";
-import type { Node } from "../types/nodes";
+import type { Node, Zone } from "../types/nodes";
 
 export const meta: MetaFunction = () => [
   { title: "Live Tracker — Lattice Artist Portal" },
 ];
 
 export async function loader(_: LoaderFunctionArgs) {
-  const [nodesResult, statusResult] = await Promise.allSettled([
+  const [nodesResult, statusResult, zonesResult] = await Promise.allSettled([
     getNodes(),
     getStatus(),
+    getZones(),
   ]);
   const nodes: Node[] = nodesResult.status === "fulfilled" ? nodesResult.value : [];
   const serverOnline: boolean =
     statusResult.status === "fulfilled"
       ? statusResult.value.mesh.masterOnline
       : false;
-  return { nodes, serverOnline };
+  const zones: Zone[] = zonesResult.status === "fulfilled" ? zonesResult.value : [];
+  return { nodes, serverOnline, zones };
 }
 
 type Tab = "list" | "map";
 
 export default function TrackerPage() {
-  const { nodes: initialNodes, serverOnline: initialOnline } =
+  const { nodes: initialNodes, serverOnline: initialOnline, zones } =
     useLoaderData<typeof loader>();
-  const { nodes, events, serverOnline } = useLiveMesh(initialNodes, initialOnline);
+  const { nodes, events, serverOnline, refreshNodes } = useLiveMesh(initialNodes, initialOnline);
   const [tab, setTab] = useState<Tab>("list");
 
   const bannerCls =
@@ -90,7 +92,12 @@ export default function TrackerPage() {
           <EventFeed events={events} />
         </>
       ) : (
-        <NodeMap nodes={nodes} serverOnline={serverOnline ?? false} />
+        <NodeMap
+          nodes={nodes}
+          serverOnline={serverOnline ?? false}
+          zones={zones}
+          onEdit={refreshNodes}
+        />
       )}
     </div>
   );

@@ -2,6 +2,7 @@ import type { SSEEvent } from "../types/nodes";
 
 const SSE_NAMES: SSEEvent["type"][] = [
   "motion", "health", "node_online", "node_offline", "enrolled", "command_ack",
+  "route_update",
 ];
 
 export function connectSSE(
