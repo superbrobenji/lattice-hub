@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useFetcher } from "react-router";
 import type { Enrollment, Zone } from "../../types/nodes";
 import { SlidePanel } from "../ui/SlidePanel";
@@ -66,7 +66,9 @@ export function EnrollmentTable({ enrollments, zones, nextFreeId, showActions }:
 
   // Close panel on success
   const approveSubmitting = approveFetcher.state === "submitting";
-  if (approveFetcher.data?.ok && approveForm) setApproveForm(null);
+  useEffect(() => {
+    if (approveFetcher.data?.ok) setApproveForm(null);
+  }, [approveFetcher.data]);
 
   return (
     <>
@@ -125,6 +127,9 @@ export function EnrollmentTable({ enrollments, zones, nextFreeId, showActions }:
                           >
                             Cancel
                           </button>
+                          {rejectFetcher.data?.error && (
+                            <p className="text-xs text-danger mt-1">{rejectFetcher.data.error}</p>
+                          )}
                         </div>
                       ) : (
                         <button
