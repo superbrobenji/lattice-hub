@@ -1,7 +1,9 @@
-import type { Node, SystemStatus } from "../types/nodes";
+import type { Node, SystemStatus, Zone, Enrollment } from "../types/nodes";
 
 const BASE_URL = process.env.ORCHESTRATOR_URL ?? "http://localhost:8080";
 const API_KEY = process.env.API_KEY ?? "";
+// ADMIN_KEY must equal API_KEY in dev (orchestrator two-layer auth uses same bearer header).
+const ADMIN_KEY = process.env.ADMIN_KEY ?? API_KEY;
 
 async function serverFetch<T>(path: string): Promise<T> {
   const headers: HeadersInit = API_KEY
@@ -14,10 +16,88 @@ async function serverFetch<T>(path: string): Promise<T> {
   return body.data;
 }
 
+async function serverMutate<T = undefined>(
+  path: string,
+  method: "POST" | "PATCH" | "DELETE",
+  body?: unknown,
+  admin = false,
+): Promise<T> {
+  const key = admin ? ADMIN_KEY : API_KEY;
+  const headers: HeadersInit = {
+    "Content-Type": "application/json",
+    ...(key ? { Authorization: `Bearer ${key}` } : {}),
+  };
+  const res = await fetch(`${BASE_URL}${path}`, {
+    method,
+    headers,
+    body: body !== undefined ? JSON.stringify(body) : undefined,
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const json = (await res.json()) as { success: boolean; data?: T; error?: string };
+  if (!json.success) throw new Error(json.error ?? "API error");
+  return json.data as T;
+}
+
 export function getNodes(): Promise<Node[]> {
   return serverFetch<Node[]>("/api/v1/nodes");
 }
 
 export function getStatus(): Promise<SystemStatus> {
   return serverFetch<SystemStatus>("/api/v1/status");
+}
+
+export function updateNode(
+  id: number,
+  patch: { name?: string; zone?: string; type?: string },
+): Promise<Node> {
+  return serverMutate<Node>(`/api/v1/nodes/${id}`, "PATCH", patch);
+}
+
+export function deleteNode(id: number): Promise<void> {
+  return serverMutate<void>(`/api/v1/nodes/${id}`, "DELETE", undefined, true);
+}
+
+export function getZones(): Promise<Zone[]> {
+  return serverFetch<Zone[]>("/api/v1/zones");
+}
+
+export function createZone(name: string): Promise<Zone> {
+  return serverMutate<Zone>("/api/v1/zones", "POST", { name });
+}
+
+export function updateZone(id: string, name: string): Promise<Zone> {
+  return serverMutate<Zone>(`/api/v1/zones/${id}`, "PATCH", { name });
+}
+
+export function deleteZone(id: string): Promise<void> {
+  return serverMutate<void>(`/api/v1/zones/${id}`, "DELETE", undefined, true);
+}
+
+export function getPendingEnrollments(): Promise<Enrollment[]> {
+  return serverFetch<Enrollment[]>("/api/v1/enrollments/pending");
+}
+
+export function getAllEnrollments(): Promise<Enrollment[]> {
+  return serverFetch<Enrollment[]>("/api/v1/enrollments");
+}
+
+export function approveEnrollment(
+  mac: string,
+  params: { name?: string; zone?: string; type?: string; nodeId?: number },
+): Promise<void> {
+  return serverMutate<void>(
+    `/api/v1/enrollments/${encodeURIComponent(mac)}/approve`,
+    "POST",
+    params,
+    true,
+  );
+}
+
+export function rejectEnrollment(mac: string): Promise<void> {
+  return serverMutate<void>(
+    `/api/v1/enrollments/${encodeURIComponent(mac)}/reject`,
+    "POST",
+    undefined,
+    true,
+  );
 }
