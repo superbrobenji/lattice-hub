@@ -117,14 +117,18 @@ func TestV1Status_NodesNextFreeId(t *testing.T) {
 		t.Fatalf("status %d", w.Code)
 	}
 	var resp APIResponse
-	json.NewDecoder(w.Body).Decode(&resp)
+	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
 	data, _ := json.Marshal(resp.Data)
 	var body struct {
 		Nodes struct {
 			NextFreeId int `json:"nextFreeId"`
 		} `json:"nodes"`
 	}
-	json.Unmarshal(data, &body)
+	if err := json.Unmarshal(data, &body); err != nil {
+		t.Fatalf("unmarshal body: %v", err)
+	}
 	if body.Nodes.NextFreeId != 2 {
 		t.Errorf("nextFreeId = %d, want 2 (ID 1 is taken)", body.Nodes.NextFreeId)
 	}
