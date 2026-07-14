@@ -73,3 +73,59 @@ func TestControlOfflineOnlineMotionReset(t *testing.T) {
 		t.Fatalf("reset: %d", got)
 	}
 }
+
+func TestControlErrorPaths(t *testing.T) {
+	// Test 1-5: spawn/offline/online error paths with httptest server
+	sim, _ := newTestSim(t, seededCfg())
+	srv := httptest.NewServer(sim.ControlHandler())
+	defer srv.Close()
+
+	// Test 1: malformed JSON → 400
+	res, err := srv.Client().Post(srv.URL+"/sim/nodes", "application/json", strings.NewReader(`{oops`))
+	if err != nil || res.StatusCode != 400 {
+		t.Fatalf("malformed JSON: %v %d", err, res.StatusCode)
+	}
+
+	// Test 2: bad MAC format → 400
+	res, err = srv.Client().Post(srv.URL+"/sim/nodes", "application/json", strings.NewReader(`{"mac":"nope","type":"led"}`))
+	if err != nil || res.StatusCode != 400 {
+		t.Fatalf("bad MAC: %v %d", err, res.StatusCode)
+	}
+
+	// Test 3: bad type → 400
+	res, err = srv.Client().Post(srv.URL+"/sim/nodes", "application/json", strings.NewReader(`{"mac":"aa:bb:cc:dd:ee:97","type":"toaster"}`))
+	if err != nil || res.StatusCode != 400 {
+		t.Fatalf("bad type: %v %d", err, res.StatusCode)
+	}
+
+	// Test 4: offline on non-existent node → 404
+	res, err = srv.Client().Post(srv.URL+"/sim/nodes/ff:ff:ff:ff:ff:00/offline", "application/json", nil)
+	if err != nil || res.StatusCode != 404 {
+		t.Fatalf("offline nonexistent: %v %d", err, res.StatusCode)
+	}
+
+	// Test 5: online on non-existent node → 404
+	res, err = srv.Client().Post(srv.URL+"/sim/nodes/ff:ff:ff:ff:ff:00/online", "application/json", nil)
+	if err != nil || res.StatusCode != 404 {
+		t.Fatalf("online nonexistent: %v %d", err, res.StatusCode)
+	}
+
+	// Test 6: motion on unenrolled spawned node → 409
+	res, err = srv.Client().Post(srv.URL+"/sim/nodes", "application/json", strings.NewReader(`{"mac":"aa:bb:cc:dd:ee:94","type":"led"}`))
+	if err != nil || res.StatusCode != 201 {
+		t.Fatalf("spawn unenrolled: %v %d", err, res.StatusCode)
+	}
+	res, err = srv.Client().Post(srv.URL+"/sim/nodes/aa:bb:cc:dd:ee:94/motion", "application/json", nil)
+	if err != nil || res.StatusCode != 409 {
+		t.Fatalf("motion on unenrolled: %v %d", err, res.StatusCode)
+	}
+
+	// Test 7: motion with disconnected orchestrator → 409
+	simNoComm := New(seededCfg())
+	srvNoComm := httptest.NewServer(simNoComm.ControlHandler())
+	defer srvNoComm.Close()
+	res, err = srvNoComm.Client().Post(srvNoComm.URL+"/sim/nodes/aa:bb:cc:dd:ee:01/motion", "application/json", nil)
+	if err != nil || res.StatusCode != 409 {
+		t.Fatalf("motion disconnected: %v %d", err, res.StatusCode)
+	}
+}
