@@ -399,6 +399,8 @@ func (ms *MeshServer) handleMessage(msg *MeshMessage) error {
 		// Log and ignore.
 		slog.Warn("Unexpected JOIN_ACK received — ignoring", "origin", fmt.Sprintf("%x", msg.OriginMacAddress))
 		return nil
+	case MessageTypeRouteReport:
+		return ms.handleRouteReport(msg)
 	default:
 		slog.Warn("Unknown message type", "type", msg.MessageType)
 	}
@@ -574,6 +576,53 @@ func (ms *MeshServer) handlePIRData(msg *MeshMessage) error {
 // handleMasterBeacon processes master beacon messages
 func (ms *MeshServer) handleMasterBeacon(msg *MeshMessage) error {
 	slog.Debug("Master beacon received", "origin", macToString(msg.OriginMacAddress))
+	return nil
+}
+
+// handleRouteReport processes a MESH_TYPE_ROUTE_REPORT (5) message.
+// The payload encodes the full relay hop chain from the origin to the master.
+// Silently discards frames with a bad opcode, oversized path_len, or a
+// truncated payload — none of these are actionable errors for the caller.
+func (ms *MeshServer) handleRouteReport(msg *MeshMessage) error {
+	if len(msg.Data) < 2 || msg.Data[0] != OpRouteReport {
+		slog.Warn("Malformed route report — bad opcode or too short",
+			"origin", macToString(msg.OriginMacAddress))
+		return nil
+	}
+	pathLen := int(msg.Data[1])
+	if pathLen > 10 {
+		slog.Warn("Route report path_len exceeds maximum",
+			"pathLen", pathLen, "origin", macToString(msg.OriginMacAddress))
+		return nil
+	}
+	if len(msg.Data) < 2+pathLen*MACAddressLength {
+		slog.Warn("Route report payload too short for declared path_len",
+			"pathLen", pathLen, "origin", macToString(msg.OriginMacAddress))
+		return nil
+	}
+
+	relayMACs := make([][]byte, pathLen)
+	for i := 0; i < pathLen; i++ {
+		mac := make([]byte, MACAddressLength)
+		copy(mac, msg.Data[2+i*MACAddressLength:2+(i+1)*MACAddressLength])
+		relayMACs[i] = mac
+	}
+
+	ms.nodeRegistry.UpdateNodeRoute(msg.OriginMacAddress, relayMACs)
+
+	if node, ok := ms.nodeRegistry.GetNode(msg.OriginMacAddress); ok && node.NodeID > 0 {
+		eventData := map[string]interface{}{
+			"nodeId":   node.NodeID,
+			"parentId": nil,
+		}
+		if node.ParentID != nil {
+			eventData["parentId"] = *node.ParentID
+		}
+		ms.publishEvent(EventRouteUpdate, eventData)
+	}
+
+	slog.Debug("Route report processed",
+		"origin", macToString(msg.OriginMacAddress), "pathLen", pathLen)
 	return nil
 }
 

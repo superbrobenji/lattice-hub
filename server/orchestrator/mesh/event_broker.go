@@ -16,6 +16,7 @@ const (
 	EventEnrolled    EventType = "enrolled"
 	EventHealth      EventType = "health"
 	EventCommandAck  EventType = "command_ack"
+	EventRouteUpdate EventType = "route_update"
 )
 
 // Event is a single SSE message sent to subscribers.
