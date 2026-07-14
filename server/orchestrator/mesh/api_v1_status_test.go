@@ -105,3 +105,27 @@ func TestV1Status_DualMaster_SecondaryDisconnected(t *testing.T) {
 		t.Errorf("serial.secondary = %q, want %q", status.Serial.Secondary, "disconnected")
 	}
 }
+
+func TestV1Status_NodesNextFreeId(t *testing.T) {
+	api, ms := newV1TestServer(t)
+	// Assign node ID 1
+	ms.nodeRegistry.AssignNode([]byte{0x01, 0x02, 0x03, 0x04, 0x05, 0x06}, 1, "n1", "z1")
+	ms.nodeRegistry.UpdateNode([]byte{0x01, 0x02, 0x03, 0x04, 0x05, 0x06}, AdapterTypePIR, 100, 1)
+
+	w := v1Request(t, api, "GET", "/api/v1/status", nil)
+	if w.Code != http.StatusOK {
+		t.Fatalf("status %d", w.Code)
+	}
+	var resp APIResponse
+	json.NewDecoder(w.Body).Decode(&resp)
+	data, _ := json.Marshal(resp.Data)
+	var body struct {
+		Nodes struct {
+			NextFreeId int `json:"nextFreeId"`
+		} `json:"nodes"`
+	}
+	json.Unmarshal(data, &body)
+	if body.Nodes.NextFreeId != 2 {
+		t.Errorf("nextFreeId = %d, want 2 (ID 1 is taken)", body.Nodes.NextFreeId)
+	}
+}
