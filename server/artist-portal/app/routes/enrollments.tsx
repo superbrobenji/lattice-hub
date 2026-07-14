@@ -25,7 +25,7 @@ export async function loader() {
   const all: Enrollment[] = allResult.status === "fulfilled" ? allResult.value : [];
   const zones: Zone[] = zonesResult.status === "fulfilled" ? zonesResult.value : [];
   const nextFreeId: number =
-    statusResult.status === "fulfilled" ? statusResult.value.nodes.nextFreeId : 1;
+    statusResult.status === "fulfilled" ? statusResult.value.nodes.nextFreeId : 0;
   return { pending, all, zones, nextFreeId };
 }
 

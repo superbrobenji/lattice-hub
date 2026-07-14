@@ -41,7 +41,7 @@ export function inferEdges(nodes: Node[], masterOnline: boolean): Edge[] {
   for (const node of nodes) {
     let sourceId: string;
 
-    if (node.parentId !== undefined) {
+    if (node.parentId !== undefined && node.hopCount !== 1) {
       // Exact route from firmware route report
       if (nodeById.has(node.parentId)) {
         sourceId = String(node.parentId);

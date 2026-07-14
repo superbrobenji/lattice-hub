@@ -70,6 +70,10 @@ export function EnrollmentTable({ enrollments, zones, nextFreeId, showActions }:
     if (approveFetcher.data?.ok) setApproveForm(null);
   }, [approveFetcher.data]);
 
+  useEffect(() => {
+    if (rejectFetcher.data?.ok) setConfirmReject(null);
+  }, [rejectFetcher.data]);
+
   return (
     <>
       <div className="overflow-x-auto">
@@ -115,7 +119,6 @@ export function EnrollmentTable({ enrollments, zones, nextFreeId, showActions }:
                                 JSON.stringify({ mac: e.mac }),
                                 { method: "POST", action: "/enrollments-reject", encType: "application/json" },
                               );
-                              setConfirmReject(null);
                             }}
                             className="px-2 py-1 text-xs bg-danger/20 border border-danger/40 text-danger rounded hover:bg-danger/30"
                           >

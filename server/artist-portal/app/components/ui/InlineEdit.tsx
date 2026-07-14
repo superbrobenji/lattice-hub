@@ -22,6 +22,7 @@ export function InlineEdit({ value, onSave, disabled, placeholder }: Props) {
   }, [value, editing]);
 
   function commit() {
+    if (!editing) return;  // guard: prevent double-fire from Enter + blur
     setEditing(false);
     if (draft.trim() !== value) onSave(draft.trim());
   }
