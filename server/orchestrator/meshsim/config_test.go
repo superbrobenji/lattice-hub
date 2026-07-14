@@ -56,4 +56,10 @@ func TestParseMACErrors(t *testing.T) {
 	if _, err := AdapterTypeFromString("toaster"); err == nil {
 		t.Fatal("want error")
 	}
+	if _, err := ParseMAC("aa:bb:cc:dd:eee:01"); err == nil {
+		t.Fatal("want error for 3-char segment")
+	}
+	if _, err := ParseMAC("a:bb:cc:dd:ee:01"); err == nil {
+		t.Fatal("want error for 1-char segment")
+	}
 }

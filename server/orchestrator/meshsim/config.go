@@ -43,6 +43,9 @@ func ParseMAC(s string) ([6]byte, error) {
 		return mac, fmt.Errorf("invalid MAC %q", s)
 	}
 	for i, p := range parts {
+		if len(p) != 2 {
+			return mac, fmt.Errorf("invalid MAC %q", s)
+		}
 		var b byte
 		if _, err := fmt.Sscanf(p, "%02x", &b); err != nil {
 			return mac, fmt.Errorf("invalid MAC %q: %w", s, err)
