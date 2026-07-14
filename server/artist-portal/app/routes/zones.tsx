@@ -33,7 +33,7 @@ export default function ZonesPage() {
 
   const nodesByZone = (zoneId: string) => nodes.filter((n) => n.zone === zoneId);
 
-  function submitCreate(e: React.FormEvent) {
+  function submitCreate(e: { preventDefault: () => void }) {
     e.preventDefault();
     if (!newName.trim()) return;
     createFetcher.submit(
