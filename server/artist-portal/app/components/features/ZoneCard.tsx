@@ -11,6 +11,12 @@ interface Props {
 
 const MAX_VISIBLE_NAMES = 5;
 
+const hexToRgb = (hex: string): number[] => [
+  parseInt(hex.slice(1, 3), 16),
+  parseInt(hex.slice(3, 5), 16),
+  parseInt(hex.slice(5, 7), 16),
+];
+
 export function ZoneCard({ zone, nodes }: Props) {
   const renameFetcher = useFetcher<{ ok: boolean; error?: string }>();
   const deleteFetcher = useFetcher<{ ok: boolean; error?: string }>();
@@ -20,14 +26,6 @@ export function ZoneCard({ zone, nodes }: Props) {
   const hasOutputNodes = nodes.some((n) => n.type === "led" || n.type === "relay");
   const hasLed = nodes.some((n) => n.type === "led");
   const hasRelay = nodes.some((n) => n.type === "relay");
-
-  const hexToRgb = (hex: string): number[] => [
-    parseInt(hex.slice(1, 3), 16),
-    parseInt(hex.slice(3, 5), 16),
-    parseInt(hex.slice(5, 7), 16),
-  ];
-
-  const visibleNames = nodes.slice(0, MAX_VISIBLE_NAMES).map((n) => n.name || `Node ${n.id}`);
   const overflow = nodes.length - MAX_VISIBLE_NAMES;
 
   return (
@@ -46,7 +44,7 @@ export function ZoneCard({ zone, nodes }: Props) {
           />
         </div>
         <button
-          onClick={() => nodes.length === 0 && setConfirmDelete(true)}
+          onClick={() => setConfirmDelete(true)}
           title={nodes.length > 0 ? "Move nodes to another zone first" : "Delete zone"}
           disabled={nodes.length > 0}
           className="text-muted hover:text-danger transition-colors text-sm disabled:opacity-30 disabled:cursor-not-allowed shrink-0"
@@ -61,12 +59,9 @@ export function ZoneCard({ zone, nodes }: Props) {
 
       {nodes.length > 0 && (
         <div className="flex flex-wrap gap-1">
-          {visibleNames.map((name) => (
-            <span
-              key={name}
-              className="px-1.5 py-0.5 text-[10px] bg-elevated border border-border rounded text-muted"
-            >
-              {name}
+          {nodes.slice(0, MAX_VISIBLE_NAMES).map((n) => (
+            <span key={n.id} className="px-1.5 py-0.5 text-[10px] bg-elevated border border-border rounded text-muted">
+              {n.name || `Node ${n.id}`}
             </span>
           ))}
           {overflow > 0 && (
