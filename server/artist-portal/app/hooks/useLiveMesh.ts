@@ -3,7 +3,7 @@ import { useFetcher } from "react-router";
 import type { Node, SSEEvent } from "../types/nodes";
 import { connectSSE } from "../services/sse";
 
-const REFRESH_EVENTS: SSEEvent["type"][] = ["health", "node_online", "node_offline"];
+const REFRESH_EVENTS: SSEEvent["type"][] = ["health", "node_online", "node_offline", "route_update"];
 
 export function useLiveMesh(initialNodes: Node[], initialOnline: boolean) {
   const [nodes, setNodes] = useState<Node[]>(initialNodes);
