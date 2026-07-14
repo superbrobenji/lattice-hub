@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { useFetcher } from "react-router";
 import type { Node, Zone } from "../../types/nodes";
 import { StatusDot } from "../ui/StatusDot";
-import { Badge } from "../ui/Badge";
 import { InlineEdit } from "../ui/InlineEdit";
 import { sendNodeCommand } from "../../services/api";
 
