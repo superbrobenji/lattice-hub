@@ -9,7 +9,7 @@ import {
   type NodeMouseHandler,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import type { Node } from "../../types/nodes";
+import type { Node, Zone } from "../../types/nodes";
 import { buildFlowNodes, inferEdges, applyDagreLayout, type MeshNodeData } from "../../lib/topology";
 import { NodeMapNode, type MeshFlowNode } from "./NodeMapNode";
 import { NodeDetailPanel } from "./NodeDetailPanel";
@@ -19,9 +19,11 @@ const NODE_TYPES = { meshNode: NodeMapNode };
 interface Props {
   nodes: Node[];
   serverOnline: boolean;
+  zones: Zone[];
+  onEdit: () => void;
 }
 
-export function NodeMap({ nodes, serverOnline }: Props) {
+export function NodeMap({ nodes, serverOnline, zones, onEdit }: Props) {
   const [mounted, setMounted] = useState(false);
   const [rfNodes, setRfNodes, onNodesChange] = useNodesState<MeshFlowNode>([]);
   const [rfEdges, setRfEdges, onEdgesChange] = useEdgesState<Edge>([]);
@@ -83,7 +85,12 @@ export function NodeMap({ nodes, serverOnline }: Props) {
       </ReactFlow>
 
       {selectedNode && (
-        <NodeDetailPanel node={selectedNode} onClose={handlePanelClose} />
+        <NodeDetailPanel
+          node={selectedNode}
+          zones={zones}
+          onClose={handlePanelClose}
+          onEdit={onEdit}
+        />
       )}
     </div>
   );

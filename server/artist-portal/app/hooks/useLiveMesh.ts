@@ -35,5 +35,5 @@ export function useLiveMesh(initialNodes: Node[], initialOnline: boolean) {
     return disconnect;
   }, [refreshNodes]);
 
-  return { nodes, events, serverOnline };
+  return { nodes, events, serverOnline, refreshNodes };
 }
