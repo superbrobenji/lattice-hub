@@ -2,6 +2,7 @@ package meshsim
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net"
@@ -10,6 +11,15 @@ import (
 	"time"
 
 	"github.com/superbrobenji/lattice-hub/mesh"
+)
+
+// Sentinel errors returned by Simulator methods so callers (e.g. the control
+// HTTP API) can distinguish failure modes with errors.Is instead of parsing
+// error strings.
+var (
+	errUnknownNode  = errors.New("meshsim: node not found")
+	errNodeNotReady = errors.New("meshsim: node not enrolled, offline, or disconnected")
+	errDuplicate    = errors.New("meshsim: node already exists")
 )
 
 const (
@@ -236,7 +246,7 @@ func (s *Simulator) SpawnNode(mac, typ string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if _, exists := s.nodes[n.MACString]; exists {
-		return fmt.Errorf("node %s already exists", mac)
+		return fmt.Errorf("node %s already exists: %w", mac, errDuplicate)
 	}
 	s.nodes[n.MACString] = n
 	return nil
@@ -248,13 +258,13 @@ func (s *Simulator) FireMotion(mac string) error {
 	defer s.mu.Unlock()
 	n, ok := s.nodes[mac]
 	if !ok {
-		return fmt.Errorf("node %s not found", mac)
+		return fmt.Errorf("node %s not found: %w", mac, errUnknownNode)
 	}
 	if !n.Enrolled || n.Offline {
-		return fmt.Errorf("node %s cannot send motion (enrolled=%v offline=%v)", mac, n.Enrolled, n.Offline)
+		return fmt.Errorf("node %s cannot send motion (enrolled=%v offline=%v): %w", mac, n.Enrolled, n.Offline, errNodeNotReady)
 	}
 	if s.comm == nil {
-		return fmt.Errorf("orchestrator not connected")
+		return fmt.Errorf("orchestrator not connected: %w", errNodeNotReady)
 	}
 	s.writeLocked(motionMsg(n))
 	return nil
@@ -266,7 +276,7 @@ func (s *Simulator) SetOffline(mac string, offline bool) error {
 	defer s.mu.Unlock()
 	n, ok := s.nodes[mac]
 	if !ok {
-		return fmt.Errorf("meshsim: node not found: %s", mac)
+		return fmt.Errorf("meshsim: node not found: %s: %w", mac, errUnknownNode)
 	}
 	n.Offline = offline
 	return nil
