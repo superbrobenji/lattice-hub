@@ -38,6 +38,26 @@ async function serverMutate<T = undefined>(
   return json.data as T;
 }
 
+// Commands (node/zone LED+relay) are ack-tracked, not fire-and-forget: the
+// orchestrator returns 202 with a body callers/tests need to correlate
+// against (commandId for nodes, sent count for zones), so unlike
+// serverMutate above this returns the orchestrator's response body
+// unmodified rather than unwrapping/discarding it.
+async function serverCommand<T>(path: string, body: unknown): Promise<T> {
+  const headers: HeadersInit = {
+    "Content-Type": "application/json",
+    ...(API_KEY ? { Authorization: `Bearer ${API_KEY}` } : {}),
+  };
+  const res = await fetch(`${BASE_URL}${path}`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify(body),
+  });
+  const json = (await res.json()) as T & { error?: string };
+  if (!res.ok) throw new Error(json.error ?? `HTTP ${res.status}`);
+  return json;
+}
+
 export function getNodes(): Promise<Node[]> {
   return serverFetch<Node[]>("/api/v1/nodes");
 }
@@ -100,4 +120,18 @@ export function rejectEnrollment(mac: string): Promise<void> {
     undefined,
     true,
   );
+}
+
+export function sendNodeCommand(
+  id: number,
+  body: { action: string; colour?: number[] },
+): Promise<{ success: boolean; data?: { commandId: string }; error?: string }> {
+  return serverCommand(`/api/v1/nodes/${id}/command`, body);
+}
+
+export function sendZoneCommand(
+  id: string,
+  body: { action: string; colour?: number[] },
+): Promise<{ success: boolean; data?: { sent: number }; error?: string }> {
+  return serverCommand(`/api/v1/zones/${id}/command`, body);
 }
