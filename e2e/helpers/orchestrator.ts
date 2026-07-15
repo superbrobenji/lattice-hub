@@ -64,7 +64,7 @@ interface APIEnvelope<T> {
 export class OrchClient {
   private async get<T>(path: string): Promise<T> {
     const res = await fetch(`${ORCH_URL}${path}`, { headers: HEADERS });
-    if (!res.ok) throw new Error(`GET ${path} → ${res.status}`);
+    if (!res.ok) throw new Error(`GET ${path} → ${res.status}: ${await res.text()}`);
     const body = (await res.json()) as APIEnvelope<T>;
     return body.data as T;
   }

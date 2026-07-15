@@ -18,7 +18,8 @@ test('stack is healthy and sim nodes come online', async ({ orch, sim }) => {
 
 test('both dashboards serve', async ({ dashPage, page }) => {
   await dashPage.goto(DASHBOARD_URL + '/');
-  await expect(dashPage.getByText('Lattice Hub')).toBeVisible();
+  await expect(dashPage).not.toHaveURL(/\/login/);
+  await expect(dashPage.getByRole('link', { name: 'Nodes' })).toBeVisible();
   await page.goto(PORTAL_URL + '/');
   await expect(page.getByText('Lattice', { exact: false }).first()).toBeVisible();
 });
