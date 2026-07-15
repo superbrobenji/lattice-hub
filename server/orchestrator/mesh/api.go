@@ -47,6 +47,34 @@ func NewAPIServer(meshServer *MeshServer, apiKey string, adminKey string, allowe
 
 // setupRoutes configures the HTTP routes
 func (api *APIServer) setupRoutes() {
+	// CORS preflight catch-all — registered first, directly on the top-level
+	// router (never on the auth-protected `sub`/`admin` subrouters), so it is
+	// the first thing gorilla/mux tries to match for any OPTIONS request.
+	//
+	// Every other route below is registered with an explicit method list
+	// (.Methods("GET"/"POST"/...)) that never includes OPTIONS. gorilla/mux
+	// only builds and invokes a router's middleware chain (including
+	// CORSMiddleware, wired in via api.router.Use above) after one of that
+	// router's own routes fully matches (see gorilla/mux Router.Match: the
+	// middleware wrap happens inside the `if route.Match(...)` branch). An
+	// OPTIONS request matched no route at all, so it fell through to mux's
+	// bare NotFoundHandler as a 404 before CORSMiddleware ever ran.
+	//
+	// This route exists purely to give mux a full match for OPTIONS on any
+	// path, so CORSMiddleware gets invoked and can do its job: set the
+	// Access-Control-Allow-* headers when the Origin is on the configured
+	// allowlist, then short-circuit with 204 before calling the wrapped
+	// handler (cors.go). Because it lives on api.router rather than `sub`,
+	// it is never wrapped by AuthMiddleware, so preflights (which browsers
+	// send without an Authorization header) can never be rejected by auth.
+	// The handler body below never actually runs when CORS is configured —
+	// CORSMiddleware already returns for every OPTIONS request — it only
+	// exists as a fallback (e.g. in tests that construct an APIServer with
+	// no allowedOrigins, so CORSMiddleware is never installed at all).
+	api.router.PathPrefix("/").Methods(http.MethodOptions).HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+	})
+
 	// Public endpoints — no auth required
 	// /metrics: Prometheus scrapers don't send Bearer tokens
 	api.router.Handle("/metrics", MetricsHandler())
