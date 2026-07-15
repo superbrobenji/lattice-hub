@@ -1,15 +1,30 @@
 # Stub overlay — removes hardware dependencies for local dashboard development.
+# The mesh-sim service simulates firmware nodes over a TCP serial link.
 # Requires Docker Compose v2.17+ (!reset YAML tag).
 # Do not use standalone. Use via Makefile: make stub | make stub-seed
 
 services:
   orchestrator:
-    devices: !reset
-      - "/dev/null:/dev/ttyUSB0"
+    devices: !reset []
+    depends_on:
+      mesh-sim:
+        condition: service_healthy
     environment:
-      SERIAL_PORT: /dev/null
+      SERIAL_PORT: tcp://mesh-sim:9000
       API_KEY: dev
       ADMIN_KEY: dev
+      AUTH_REGISTRY_PATH: /tmp/nodeauth.json
+
+  mesh-sim:
+    container_name: mesh-sim
+    build:
+      context: ./orchestrator
+      dockerfile: Dockerfile.mesh-sim
+    ports:
+      - "9001:9001"
+    networks:
+      - kafka-net
+    restart: unless-stopped
 
   sidecar:
     user: root
