@@ -59,6 +59,31 @@ Expected response:
 
 See [server/QUICK_START.md](server/QUICK_START.md) for USB serial device setup, Proxmox passthrough, and troubleshooting.
 
+## End-to-end tests
+
+The `e2e/` directory holds a Playwright suite that exercises the dashboard and artist-portal against a stub stack — no ESP32 hardware required. A `mesh-sim` service stands in for the serial-attached ESP32 master, speaking the same protocol over `tcp://` instead of USB: it emits heartbeats and route reports, acks commands, and drives node enrollment and motion events like a real mesh.
+
+Run the full suite, which builds and boots the stub stack (via `make stub-seed`) before running the tests:
+
+```bash
+make e2e
+```
+
+To iterate on tests against a stack that's already running:
+
+```bash
+make stub-seed
+cd e2e && npx playwright test
+```
+
+`mesh-sim`'s control API listens on `localhost:9001` for deterministic test orchestration — poke it directly to trigger simulated events by hand:
+
+```bash
+curl -X POST localhost:9001/sim/nodes/aa:bb:cc:dd:ee:01/motion
+```
+
+Both the dashboard and artist-portal are covered.
+
 ## Documentation
 
 | Document | Contents |
