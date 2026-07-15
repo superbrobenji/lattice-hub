@@ -140,6 +140,30 @@ func TestMetricsEndpoint_ExemptFromAuth(t *testing.T) {
 	}
 }
 
+// TestInstrumentHandler_PromotesFlusher verifies that the ResponseWriter
+// InstrumentHandler passes to the wrapped handler still satisfies
+// http.Flusher when the underlying writer supports it. statusResponseWriter
+// embeds the http.ResponseWriter interface (not a concrete type), so Go does
+// not promote a Flush method from the underlying concrete writer -- without
+// an explicit Flush method on statusResponseWriter, streaming handlers (e.g.
+// SSE) that type-assert http.Flusher always fail behind this middleware.
+func TestInstrumentHandler_PromotesFlusher(t *testing.T) {
+	var flusherOK bool
+	inner := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, flusherOK = w.(http.Flusher)
+		w.WriteHeader(http.StatusOK)
+	})
+	h := InstrumentHandler("/flusher-test", inner)
+
+	req := httptest.NewRequest("GET", "/flusher-test", nil)
+	w := httptest.NewRecorder() // *httptest.ResponseRecorder implements http.Flusher
+	h.ServeHTTP(w, req)
+
+	if !flusherOK {
+		t.Error("expected InstrumentHandler's ResponseWriter to satisfy http.Flusher when the underlying writer supports it")
+	}
+}
+
 // TestMetricsEndpoint_AuthStillProtectsOtherRoutes verifies that the auth
 // middleware still applies to non-metrics routes when an API key is set.
 func TestMetricsEndpoint_AuthStillProtectsOtherRoutes(t *testing.T) {
