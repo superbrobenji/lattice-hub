@@ -22,3 +22,9 @@ server/.env
 
 # Runtime data
 server/orchestrator/data/
+
+# Claude worktrees
+.claude/worktrees/
+
+# Artist portal build output
+server/artist-portal/build/
