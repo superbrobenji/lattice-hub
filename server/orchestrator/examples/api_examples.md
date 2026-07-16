@@ -4,12 +4,18 @@ All examples use the v1 API at `/api/v1/`. Replace `localhost:8080` with your de
 
 ## Authentication
 
-Public endpoints (read-only node and zone data, event stream) require no authentication.
+Public endpoints (read-only node data, system status, event stream) require no authentication.
 
-Admin endpoints (enrollment approval, node deletion, zone deletion) require:
+Most other endpoints (zone reads and writes, node updates, node/zone commands, command status, enrollment reads) require:
+```
+Authorization: Bearer <API_KEY>
+```
+
+Admin endpoints (enrollment approval/rejection, node deletion, zone deletion) require:
 ```
 Authorization: Bearer <ADMIN_KEY>
 ```
+`ADMIN_KEY` may differ from `API_KEY`. If `ADMIN_KEY` is unset, admin endpoints fall back to accepting `API_KEY`.
 
 ---
 
@@ -65,7 +71,7 @@ Response:
 ### Update a node
 ```bash
 curl -X PATCH http://localhost:8080/api/v1/nodes/3 \
-  -H "Authorization: Bearer $ADMIN_KEY" \
+  -H "Authorization: Bearer $API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"name": "entrance-right", "zone": "lobby"}'
 ```
@@ -73,6 +79,7 @@ curl -X PATCH http://localhost:8080/api/v1/nodes/3 \
 ### Send command to output node (LED strip)
 ```bash
 curl -X POST http://localhost:8080/api/v1/nodes/4/command \
+  -H "Authorization: Bearer $API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"action": "led_solid", "colour": [255, 0, 0]}'
 ```
@@ -84,7 +91,8 @@ Response (202 Accepted):
 
 Track acknowledgement via SSE or poll:
 ```bash
-curl http://localhost:8080/api/v1/nodes/4/command/a1b2c3d4-...
+curl http://localhost:8080/api/v1/nodes/4/command/a1b2c3d4-... \
+  -H "Authorization: Bearer $API_KEY"
 ```
 
 ---
@@ -93,13 +101,14 @@ curl http://localhost:8080/api/v1/nodes/4/command/a1b2c3d4-...
 
 ### List zones
 ```bash
-curl http://localhost:8080/api/v1/zones
+curl http://localhost:8080/api/v1/zones \
+  -H "Authorization: Bearer $API_KEY"
 ```
 
 ### Create a zone
 ```bash
 curl -X POST http://localhost:8080/api/v1/zones \
-  -H "Authorization: Bearer $ADMIN_KEY" \
+  -H "Authorization: Bearer $API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"name": "stage"}'
 ```
@@ -107,6 +116,7 @@ curl -X POST http://localhost:8080/api/v1/zones \
 ### Send command to all output nodes in a zone
 ```bash
 curl -X POST http://localhost:8080/api/v1/zones/stage-id/command \
+  -H "Authorization: Bearer $API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"action": "led_off"}'
 ```
@@ -167,4 +177,4 @@ es.addEventListener("command_ack", (e) => {
 });
 ```
 
-Event types: `motion`, `health`, `node_online`, `node_offline`, `enrolled`, `command_ack`
+Event types: `motion`, `health`, `node_online`, `node_offline`, `enrolled`, `command_ack`, `route_update`
