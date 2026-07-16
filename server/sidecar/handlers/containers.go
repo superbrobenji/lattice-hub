@@ -10,9 +10,7 @@ import (
 	"time"
 
 	"github.com/containerd/errdefs"
-	"github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/api/types/filters"
-	"github.com/docker/docker/client"
+	"github.com/moby/moby/client"
 	"github.com/gorilla/mux"
 )
 
@@ -22,7 +20,7 @@ type ContainerHandler struct {
 }
 
 func NewContainerHandler(project string) (*ContainerHandler, error) {
-	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+	cli, err := client.New(client.FromEnv)
 	if err != nil {
 		return nil, err
 	}
@@ -34,9 +32,8 @@ func (h *ContainerHandler) DockerClient() *client.Client {
 }
 
 func (h *ContainerHandler) ListContainers(w http.ResponseWriter, r *http.Request) {
-	f := filters.NewArgs()
-	f.Add("label", "com.docker.compose.project="+h.project)
-	containers, err := h.docker.ContainerList(context.Background(), container.ListOptions{All: true, Filters: f})
+	f := client.Filters{}.Add("label", "com.docker.compose.project="+h.project)
+	res, err := h.docker.ContainerList(context.Background(), client.ContainerListOptions{All: true, Filters: f})
 	if err != nil {
 		http.Error(w, `{"error":"docker unavailable"}`, http.StatusServiceUnavailable)
 		return
@@ -48,13 +45,13 @@ func (h *ContainerHandler) ListContainers(w http.ResponseWriter, r *http.Request
 		Status string   `json:"status"`
 		State  string   `json:"state"`
 	}
-	out := make([]containerInfo, 0, len(containers))
-	for _, c := range containers {
+	out := make([]containerInfo, 0, len(res.Items))
+	for _, c := range res.Items {
 		id := c.ID
 		if len(id) > 12 {
 			id = id[:12]
 		}
-		out = append(out, containerInfo{ID: id, Names: c.Names, Image: c.Image, Status: c.Status, State: c.State})
+		out = append(out, containerInfo{ID: id, Names: c.Names, Image: c.Image, Status: c.Status, State: string(c.State)})
 	}
 	WriteJSON(w, http.StatusOK, map[string]interface{}{"containers": out})
 }
@@ -62,7 +59,7 @@ func (h *ContainerHandler) ListContainers(w http.ResponseWriter, r *http.Request
 func (h *ContainerHandler) RestartContainer(w http.ResponseWriter, r *http.Request) {
 	name := mux.Vars(r)["name"]
 	timeout := 10
-	if err := h.docker.ContainerRestart(context.Background(), name, container.StopOptions{Timeout: &timeout}); err != nil {
+	if _, err := h.docker.ContainerRestart(context.Background(), name, client.ContainerRestartOptions{Timeout: &timeout}); err != nil {
 		http.Error(w, `{"error":"restart failed"}`, http.StatusInternalServerError)
 		return
 	}
@@ -78,7 +75,7 @@ func (h *ContainerHandler) GetLogs(w http.ResponseWriter, r *http.Request) {
 	if n, err := strconv.Atoi(tail); err != nil || n < 1 || n > 1000 {
 		tail = "100"
 	}
-	logs, err := h.docker.ContainerLogs(context.Background(), name, container.LogsOptions{
+	logs, err := h.docker.ContainerLogs(context.Background(), name, client.ContainerLogsOptions{
 		ShowStdout: true, ShowStderr: true, Tail: tail,
 	})
 	if err != nil {
@@ -115,7 +112,7 @@ func (h *ContainerHandler) GetStats(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	resp, err := h.docker.ContainerStats(ctx, name, false)
+	resp, err := h.docker.ContainerStats(ctx, name, client.ContainerStatsOptions{IncludePreviousSample: true})
 	if err != nil {
 		http.Error(w, `{"error":"stats unavailable"}`, http.StatusServiceUnavailable)
 		return
@@ -189,7 +186,7 @@ type mountPoint struct {
 
 func (h *ContainerHandler) InspectContainer(w http.ResponseWriter, r *http.Request) {
 	name := mux.Vars(r)["name"]
-	info, err := h.docker.ContainerInspect(context.Background(), name)
+	inspect, err := h.docker.ContainerInspect(context.Background(), name, client.ContainerInspectOptions{})
 	if err != nil {
 		if errdefs.IsNotFound(err) {
 			http.Error(w, `{"error":"container not found"}`, http.StatusNotFound)
@@ -198,15 +195,16 @@ func (h *ContainerHandler) InspectContainer(w http.ResponseWriter, r *http.Reque
 		}
 		return
 	}
+	info := inspect.Container
 
 	// Ports
 	ports := map[string][]portBinding{}
 	for p, bindings := range info.NetworkSettings.Ports {
 		var bs []portBinding
 		for _, b := range bindings {
-			bs = append(bs, portBinding{HostIP: b.HostIP, HostPort: b.HostPort})
+			bs = append(bs, portBinding{HostIP: b.HostIP.String(), HostPort: b.HostPort})
 		}
-		ports[string(p)] = bs
+		ports[p.String()] = bs
 	}
 
 	// Mounts
@@ -232,7 +230,7 @@ func (h *ContainerHandler) InspectContainer(w http.ResponseWriter, r *http.Reque
 
 	dockerHealth := "none"
 	if info.State.Health != nil {
-		dockerHealth = info.State.Health.Status
+		dockerHealth = string(info.State.Health.Status)
 	}
 
 	restartPolicy := ""

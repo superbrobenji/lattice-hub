@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/docker/docker/client"
+	"github.com/moby/moby/client"
 	kafka "github.com/segmentio/kafka-go"
 )
 
@@ -76,11 +76,12 @@ func (h *HealthHandler) probeService(ctx context.Context, spec serviceSpec) Serv
 	}
 
 	// Docker state
-	info, err := h.docker.ContainerInspect(ctx, spec.name)
+	inspect, err := h.docker.ContainerInspect(ctx, spec.name, client.ContainerInspectOptions{})
 	if err == nil {
-		svc.DockerState = info.State.Status
+		info := inspect.Container
+		svc.DockerState = string(info.State.Status)
 		if info.State.Health != nil {
-			svc.DockerHealth = info.State.Health.Status
+			svc.DockerHealth = string(info.State.Health.Status)
 		} else {
 			svc.DockerHealth = "none"
 		}
