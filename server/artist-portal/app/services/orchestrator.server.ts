@@ -2,7 +2,8 @@ import type { Node, SystemStatus, Zone, Enrollment } from "../types/nodes";
 
 const BASE_URL = process.env.ORCHESTRATOR_URL ?? "http://localhost:8080";
 const API_KEY = process.env.API_KEY ?? "";
-// ADMIN_KEY must equal API_KEY in dev (orchestrator two-layer auth uses same bearer header).
+// Admin-tier operations (enrollment decisions, deletes) send ADMIN_KEY, which
+// may differ from API_KEY. Falls back to API_KEY for setups where they match.
 const ADMIN_KEY = process.env.ADMIN_KEY ?? API_KEY;
 
 async function serverFetch<T>(path: string): Promise<T> {
