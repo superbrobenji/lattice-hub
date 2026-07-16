@@ -13,9 +13,11 @@ export async function sendNodeCommand(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ id, action, colour }),
   });
-  const json = await res.json();
-  if (!res.ok) throw new Error(`Command failed: ${res.status}`);
-  return json;
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Command failed: ${res.status} ${text}`);
+  }
+  return res.json();
 }
 
 export async function sendZoneCommand(
@@ -28,7 +30,9 @@ export async function sendZoneCommand(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ id, action, colour }),
   });
-  const json = await res.json();
-  if (!res.ok) throw new Error(`Zone command failed: ${res.status}`);
-  return json;
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Zone command failed: ${res.status} ${text}`);
+  }
+  return res.json();
 }

@@ -21,7 +21,7 @@ services:
       context: ./orchestrator
       dockerfile: Dockerfile.mesh-sim
     ports:
-      - "9001:9001"
+      - "127.0.0.1:9001:9001"
     networks:
       - kafka-net
     restart: unless-stopped
