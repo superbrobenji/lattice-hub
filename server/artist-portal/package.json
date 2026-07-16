@@ -13,7 +13,7 @@
   },
   "dependencies": {
     "@dagrejs/dagre": "^1.1.4",
-    "@react-router/fs-routes": "7.18.1",
+    "@react-router/fs-routes": "8.2.0",
     "@react-router/node": "^7.18.1",
     "@react-router/serve": "^7.18.1",
     "@xyflow/react": "^12.6.4",
