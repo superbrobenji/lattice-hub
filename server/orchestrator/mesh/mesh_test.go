@@ -1130,3 +1130,37 @@ func TestAdminRoute_Requires_ADMIN_KEY(t *testing.T) {
 		t.Errorf("status = %d, want 401 (wrong admin key)", rr.Code)
 	}
 }
+
+func TestAdminRoute_WorksWithDistinctKeys(t *testing.T) {
+	// ADMIN_KEY and API_KEY are separate tiers reading the same bearer
+	// header: admin routes must accept ADMIN_KEY (not API_KEY) even when
+	// the two keys differ, and API_KEY routes must reject ADMIN_KEY.
+	ms := newTestMeshServer(t)
+	mac := [6]byte{0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF}
+	_ = ms.authRegistry.AddPending(mac, [32]byte{})
+
+	apiServer := NewAPIServer(ms, "api-key", "admin-key", nil)
+
+	do := func(method, path, token string) int {
+		req := httptest.NewRequest(method, path, nil)
+		req.Header.Set("Authorization", "Bearer "+token)
+		rr := httptest.NewRecorder()
+		apiServer.ServeHTTP(rr, req)
+		return rr.Code
+	}
+
+	if code := do("POST", "/api/v1/enrollments/aa:bb:cc:dd:ee:ff/reject", "api-key"); code != http.StatusUnauthorized {
+		t.Errorf("admin route with API_KEY: status = %d, want 401", code)
+	}
+	if code := do("POST", "/api/v1/enrollments/aa:bb:cc:dd:ee:ff/reject", "admin-key"); code == http.StatusUnauthorized {
+		t.Errorf("admin route with ADMIN_KEY: status = %d, want non-401", code)
+	}
+	if code := do("GET", "/api/v1/zones", "admin-key"); code != http.StatusUnauthorized {
+		t.Errorf("API_KEY route with ADMIN_KEY: status = %d, want 401", code)
+	}
+	// DELETE /api/v1/nodes/{id} shares its path with an API_KEY-tier PATCH
+	// route; the method mismatch must fall through to the admin subrouter.
+	if code := do("DELETE", "/api/v1/nodes/99", "admin-key"); code == http.StatusUnauthorized || code == http.StatusMethodNotAllowed {
+		t.Errorf("admin DELETE with ADMIN_KEY: status = %d, want route match (non-401/405)", code)
+	}
+}

@@ -138,9 +138,14 @@ func (api *APIServer) setupRoutes() {
 	sub.Handle("/api/v1/enrollments/pending", InstrumentHandler("/api/v1/enrollments/pending", http.HandlerFunc(api.v1GetPendingEnrollments))).Methods("GET")
 	sub.Handle("/api/v1/enrollments", InstrumentHandler("/api/v1/enrollments", http.HandlerFunc(api.v1GetAllEnrollments))).Methods("GET")
 
-	// Admin routes — require ADMIN_KEY in addition to API_KEY
-	// These are the most sensitive operations: enrollment decisions and hard deletes.
-	admin := sub.PathPrefix("").Subrouter()
+	// Admin routes — authenticated with ADMIN_KEY instead of API_KEY, so the
+	// two keys can differ. These are the most sensitive operations: enrollment
+	// decisions and hard deletes. The subrouter hangs off api.router (not sub)
+	// because both tiers read the same Authorization header — nesting under
+	// sub would force ADMIN_KEY == API_KEY for admin calls to ever pass.
+	// When ADMIN_KEY is unset, fall back to the API_KEY tier (with a startup
+	// warning from main.go) rather than leaving these routes open.
+	admin := api.router.PathPrefix("").Subrouter()
 	if api.adminKey != "" {
 		admin.Use(func(next http.Handler) http.Handler {
 			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -157,6 +162,8 @@ func (api *APIServer) setupRoutes() {
 				next.ServeHTTP(w, r)
 			})
 		})
+	} else if api.apiKey != "" {
+		admin.Use(AuthMiddleware(api.apiKey))
 	}
 	admin.Handle("/api/v1/enrollments/{mac}/approve", InstrumentHandler("/api/v1/enrollments/{mac}/approve", http.HandlerFunc(api.v1ApproveEnrollment))).Methods("POST")
 	admin.Handle("/api/v1/enrollments/{mac}/reject", InstrumentHandler("/api/v1/enrollments/{mac}/reject", http.HandlerFunc(api.v1RejectEnrollment))).Methods("POST")

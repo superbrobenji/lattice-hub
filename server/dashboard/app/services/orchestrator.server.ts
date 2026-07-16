@@ -2,12 +2,15 @@ import type { INode, IZone, IEnrollment, ServerStatus } from "~/types/nodes";
 
 const BASE_URL = process.env.ORCHESTRATOR_URL ?? "http://localhost:8080";
 const API_KEY = process.env.API_KEY ?? "";
+// Admin-tier orchestrator endpoints (enrollment approve/reject) send ADMIN_KEY,
+// which may differ from API_KEY. Falls back to API_KEY when unset.
+const ADMIN_KEY = process.env.ADMIN_KEY || API_KEY;
 
-async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
+async function apiFetch<T>(path: string, options?: RequestInit, admin = false): Promise<T> {
   const res = await fetch(`${BASE_URL}${path}`, {
     ...options,
     headers: {
-      Authorization: `Bearer ${API_KEY}`,
+      Authorization: `Bearer ${admin ? ADMIN_KEY : API_KEY}`,
       "Content-Type": "application/json",
       ...(options?.headers as Record<string, string> ?? {}),
     },
@@ -32,9 +35,9 @@ export const orchestrator = {
     apiFetch(`/api/v1/enrollments/${mac}/approve`, {
       method: "POST",
       body: JSON.stringify(params),
-    }),
+    }, true),
   rejectEnrollment: (mac: string) =>
-    apiFetch(`/api/v1/enrollments/${mac}/reject`, { method: "POST" }),
+    apiFetch(`/api/v1/enrollments/${mac}/reject`, { method: "POST" }, true),
   getStatus: () => apiFetch<ServerStatus>("/api/v1/status"),
   startServer: async () => {
     const res = await fetch(`${BASE_URL}/server/start`, {
