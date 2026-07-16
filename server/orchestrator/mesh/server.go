@@ -157,12 +157,12 @@ func (ms *MeshServer) Start() error {
 		StopBits: serial.OneStopBit,
 	}
 
-	rawPort, err := serial.Open(ms.serialPort, mode)
+	port, err := openTransport(ms.serialPort, mode)
 	if err != nil {
 		return fmt.Errorf("failed to open serial port %s: %w", ms.serialPort, err)
 	}
 
-	ms.serialComm = NewSerialComm(&realSerialPort{rawPort})
+	ms.serialComm = NewSerialComm(port)
 	ms.running = true
 	SetSerialConnected(true)
 	ms.frameTimeMu.Lock()
@@ -174,12 +174,12 @@ func (ms *MeshServer) Start() error {
 	go ms.messageProcessor(ms.serialComm, "primary")
 
 	if ms.secondaryPort != "" {
-		secondaryPhysPort, secErr := serial.Open(ms.secondaryPort, mode)
+		secondaryPort, secErr := openTransport(ms.secondaryPort, mode)
 		if secErr != nil {
 			slog.Warn("Failed to open secondary serial port — continuing single-master",
 				"port", ms.secondaryPort, "error", secErr)
 		} else {
-			ms.secondarySerialComm = NewSerialComm(&realSerialPort{secondaryPhysPort})
+			ms.secondarySerialComm = NewSerialComm(secondaryPort)
 			ms.secondaryConnected = true
 			ms.wg.Add(1)
 			go ms.messageProcessor(ms.secondarySerialComm, "secondary")

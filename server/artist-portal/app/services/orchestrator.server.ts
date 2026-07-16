@@ -2,7 +2,8 @@ import type { Node, SystemStatus, Zone, Enrollment } from "../types/nodes";
 
 const BASE_URL = process.env.ORCHESTRATOR_URL ?? "http://localhost:8080";
 const API_KEY = process.env.API_KEY ?? "";
-// ADMIN_KEY must equal API_KEY in dev (orchestrator two-layer auth uses same bearer header).
+// Admin-tier operations (enrollment decisions, deletes) send ADMIN_KEY, which
+// may differ from API_KEY. Falls back to API_KEY for setups where they match.
 const ADMIN_KEY = process.env.ADMIN_KEY ?? API_KEY;
 
 async function serverFetch<T>(path: string): Promise<T> {
@@ -36,6 +37,26 @@ async function serverMutate<T = undefined>(
   const json = (await res.json()) as { success: boolean; data?: T; error?: string };
   if (!json.success) throw new Error(json.error ?? "API error");
   return json.data as T;
+}
+
+// Commands (node/zone LED+relay) are ack-tracked, not fire-and-forget: the
+// orchestrator returns 202 with a body callers/tests need to correlate
+// against (commandId for nodes, sent count for zones), so unlike
+// serverMutate above this returns the orchestrator's response body
+// unmodified rather than unwrapping/discarding it.
+async function serverCommand<T>(path: string, body: unknown): Promise<T> {
+  const headers: HeadersInit = {
+    "Content-Type": "application/json",
+    ...(API_KEY ? { Authorization: `Bearer ${API_KEY}` } : {}),
+  };
+  const res = await fetch(`${BASE_URL}${path}`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify(body),
+  });
+  const json = (await res.json()) as T & { error?: string };
+  if (!res.ok) throw new Error(json.error ?? `HTTP ${res.status}`);
+  return json;
 }
 
 export function getNodes(): Promise<Node[]> {
@@ -100,4 +121,18 @@ export function rejectEnrollment(mac: string): Promise<void> {
     undefined,
     true,
   );
+}
+
+export function sendNodeCommand(
+  id: number,
+  body: { action: string; colour?: number[] },
+): Promise<{ success: boolean; data?: { commandId: string }; error?: string }> {
+  return serverCommand(`/api/v1/nodes/${id}/command`, body);
+}
+
+export function sendZoneCommand(
+  id: string,
+  body: { action: string; colour?: number[] },
+): Promise<{ success: boolean; data?: { sent: number }; error?: string }> {
+  return serverCommand(`/api/v1/zones/${id}/command`, body);
 }
