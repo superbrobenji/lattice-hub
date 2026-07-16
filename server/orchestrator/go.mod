@@ -8,7 +8,7 @@ require (
 	github.com/prometheus/client_golang v1.23.2
 	github.com/segmentio/kafka-go v0.4.51
 	github.com/superbrobenji/lattice-protocol v0.3.1-0.20260713121739-c1b5a3ac4f67
-	go.bug.st/serial v1.7.1
+	go.bug.st/serial v1.8.0
 	google.golang.org/protobuf v1.36.11
 )
 
