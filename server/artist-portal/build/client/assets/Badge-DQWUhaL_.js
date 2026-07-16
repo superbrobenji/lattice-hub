@@ -1,0 +1,1 @@
+import{t as e}from"./jsx-runtime-D-yHsK5r.js";var t=e(),n={default:`bg-elevated text-muted`,type:`bg-elevated text-accent border border-accent/30`,zone:`bg-elevated text-muted border border-border`};function r({children:e,variant:r=`default`}){return(0,t.jsx)(`span`,{className:`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${n[r]}`,children:e})}export{r as t};
