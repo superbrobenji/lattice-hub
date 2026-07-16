@@ -20,7 +20,7 @@ type ContainerHandler struct {
 }
 
 func NewContainerHandler(project string) (*ContainerHandler, error) {
-	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+	cli, err := client.New(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
 		return nil, err
 	}
