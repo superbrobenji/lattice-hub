@@ -36,41 +36,43 @@ export function buildFlowNodes(nodes: Node[], masterOnline: boolean): Array<Flow
 
 export function inferEdges(nodes: Node[], masterOnline: boolean): Edge[] {
   const edges: Edge[] = [];
+  const nodeById = new Map(nodes.map((n) => [n.id, n]));
 
-  const byHop = new Map<number, Node[]>();
   for (const node of nodes) {
-    const list = byHop.get(node.hopCount) ?? [];
-    list.push(node);
-    byHop.set(node.hopCount, list);
-  }
+    let sourceId: string;
 
-  for (const node of byHop.get(1) ?? []) {
-    const connected = masterOnline && node.online;
-    edges.push({
-      id: `master-${node.id}`,
-      source: "master",
-      target: String(node.id),
-      style: { stroke: connected ? "#ffffff" : "#ef4444", strokeWidth: 1.5 },
-    });
-  }
-
-  const maxHop = Math.max(0, ...byHop.keys());
-  for (let h = 2; h <= maxHop; h++) {
-    const parents = [...(byHop.get(h - 1) ?? [])].sort((a, b) =>
-      a.name.localeCompare(b.name),
-    );
-    for (const node of byHop.get(h) ?? []) {
+    if (node.parentId !== undefined && node.hopCount !== 1) {
+      // Exact route from firmware route report
+      if (nodeById.has(node.parentId)) {
+        sourceId = String(node.parentId);
+      } else {
+        sourceId = "master"; // parent offline or not yet assigned
+      }
+    } else if (node.hopCount === 1) {
+      sourceId = "master";
+    } else {
+      // Heuristic: same-zone hopCount-1 parent, fallback to first alphabetical
+      const parents = nodes
+        .filter((p) => p.hopCount === node.hopCount - 1)
+        .sort((a, b) => a.name.localeCompare(b.name));
       const sameZone = parents.filter((p) => p.zone === node.zone);
       const parent = sameZone[0] ?? parents[0];
       if (!parent) continue;
-      const connected = parent.online && node.online;
-      edges.push({
-        id: `${parent.id}-${node.id}`,
-        source: String(parent.id),
-        target: String(node.id),
-        style: { stroke: connected ? "#ffffff" : "#ef4444", strokeWidth: 1.5 },
-      });
+      sourceId = String(parent.id);
     }
+
+    const source = sourceId === "master" ? null : nodeById.get(parseInt(sourceId, 10));
+    const connected =
+      sourceId === "master"
+        ? masterOnline && node.online
+        : (source?.online ?? false) && node.online;
+
+    edges.push({
+      id: `${sourceId}-${node.id}`,
+      source: sourceId,
+      target: String(node.id),
+      style: { stroke: connected ? "#ffffff" : "#ef4444", strokeWidth: 1.5 },
+    });
   }
 
   return edges;
