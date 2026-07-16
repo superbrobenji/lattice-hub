@@ -47,6 +47,34 @@ func NewAPIServer(meshServer *MeshServer, apiKey string, adminKey string, allowe
 
 // setupRoutes configures the HTTP routes
 func (api *APIServer) setupRoutes() {
+	// CORS preflight catch-all — registered first, directly on the top-level
+	// router (never on the auth-protected `sub`/`admin` subrouters), so it is
+	// the first thing gorilla/mux tries to match for any OPTIONS request.
+	//
+	// Every other route below is registered with an explicit method list
+	// (.Methods("GET"/"POST"/...)) that never includes OPTIONS. gorilla/mux
+	// only builds and invokes a router's middleware chain (including
+	// CORSMiddleware, wired in via api.router.Use above) after one of that
+	// router's own routes fully matches (see gorilla/mux Router.Match: the
+	// middleware wrap happens inside the `if route.Match(...)` branch). An
+	// OPTIONS request matched no route at all, so it fell through to mux's
+	// bare NotFoundHandler as a 404 before CORSMiddleware ever ran.
+	//
+	// This route exists purely to give mux a full match for OPTIONS on any
+	// path, so CORSMiddleware gets invoked and can do its job: set the
+	// Access-Control-Allow-* headers when the Origin is on the configured
+	// allowlist, then short-circuit with 204 before calling the wrapped
+	// handler (cors.go). Because it lives on api.router rather than `sub`,
+	// it is never wrapped by AuthMiddleware, so preflights (which browsers
+	// send without an Authorization header) can never be rejected by auth.
+	// The handler body below never actually runs when CORS is configured —
+	// CORSMiddleware already returns for every OPTIONS request — it only
+	// exists as a fallback (e.g. in tests that construct an APIServer with
+	// no allowedOrigins, so CORSMiddleware is never installed at all).
+	api.router.PathPrefix("/").Methods(http.MethodOptions).HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+	})
+
 	// Public endpoints — no auth required
 	// /metrics: Prometheus scrapers don't send Bearer tokens
 	api.router.Handle("/metrics", MetricsHandler())
@@ -110,9 +138,14 @@ func (api *APIServer) setupRoutes() {
 	sub.Handle("/api/v1/enrollments/pending", InstrumentHandler("/api/v1/enrollments/pending", http.HandlerFunc(api.v1GetPendingEnrollments))).Methods("GET")
 	sub.Handle("/api/v1/enrollments", InstrumentHandler("/api/v1/enrollments", http.HandlerFunc(api.v1GetAllEnrollments))).Methods("GET")
 
-	// Admin routes — require ADMIN_KEY in addition to API_KEY
-	// These are the most sensitive operations: enrollment decisions and hard deletes.
-	admin := sub.PathPrefix("").Subrouter()
+	// Admin routes — authenticated with ADMIN_KEY instead of API_KEY, so the
+	// two keys can differ. These are the most sensitive operations: enrollment
+	// decisions and hard deletes. The subrouter hangs off api.router (not sub)
+	// because both tiers read the same Authorization header — nesting under
+	// sub would force ADMIN_KEY == API_KEY for admin calls to ever pass.
+	// When ADMIN_KEY is unset, fall back to the API_KEY tier (with a startup
+	// warning from main.go) rather than leaving these routes open.
+	admin := api.router.PathPrefix("").Subrouter()
 	if api.adminKey != "" {
 		admin.Use(func(next http.Handler) http.Handler {
 			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -129,6 +162,8 @@ func (api *APIServer) setupRoutes() {
 				next.ServeHTTP(w, r)
 			})
 		})
+	} else if api.apiKey != "" {
+		admin.Use(AuthMiddleware(api.apiKey))
 	}
 	admin.Handle("/api/v1/enrollments/{mac}/approve", InstrumentHandler("/api/v1/enrollments/{mac}/approve", http.HandlerFunc(api.v1ApproveEnrollment))).Methods("POST")
 	admin.Handle("/api/v1/enrollments/{mac}/reject", InstrumentHandler("/api/v1/enrollments/{mac}/reject", http.HandlerFunc(api.v1RejectEnrollment))).Methods("POST")

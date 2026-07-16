@@ -2,26 +2,25 @@ services:
   kafka:
     container_name: kafka
     hostname: kafka
-    image: bitnami/kafka
+    image: apache/kafka:3.7.0
     ports:
       - 9092:9092
     environment:
-      - KAFKA_ENABLE_KRAFT=yes
-      - KAFKA_CFG_PROCESS_ROLES=broker,controller
-      - KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER
-      - KAFKA_CFG_LISTENERS=PLAINTEXT://:9092,CONTROLLER://:9093,EXTERNAL://:9094
-      - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,EXTERNAL:PLAINTEXT
-      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://kafka:9092,EXTERNAL://kafka:9094
-      - KAFKA_BROKER_ID=1
-      - KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=1@127.0.0.1:9093
-      - ALLOW_PLAINTEXT_LISTENER=yes
-      - KAFKA_CFG_NODE_ID=1
+      - KAFKA_NODE_ID=1
+      - KAFKA_PROCESS_ROLES=broker,controller
+      - KAFKA_CONTROLLER_LISTENER_NAMES=CONTROLLER
+      - KAFKA_LISTENERS=PLAINTEXT://:9092,CONTROLLER://:9093,EXTERNAL://:9094
+      - KAFKA_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,EXTERNAL:PLAINTEXT
+      - KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://kafka:9092,EXTERNAL://kafka:9094
+      - KAFKA_CONTROLLER_QUORUM_VOTERS=1@127.0.0.1:9093
       - KAFKA_AUTO_CREATE_TOPICS_ENABLE=true
+      - KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR=1
+      - CLUSTER_ID=MkU3OTM2NTcxNTJhNDM2YQ
     healthcheck:
       test:
         [
           "CMD-SHELL",
-          "kafka-topics.sh --bootstrap-server localhost:9092 --list || exit 1",
+          "/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list || exit 1",
         ]
       interval: 10s
       timeout: 10s
@@ -31,6 +30,7 @@ services:
       - kafka-net
 
   orchestrator:
+    container_name: orchestrator
     build: ./orchestrator
     depends_on:
       kafka:
@@ -62,7 +62,7 @@ services:
       - API_PORT=${API_PORT:-8080}
       - KAFKA_BROKER=kafka:9092
       - API_KEY=${API_KEY:?API_KEY is required}
-      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-http://localhost:5173,http://localhost:3000,http://localhost:3001,http://localhost:3002}
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-http://localhost:5173,http://localhost:3000,http://localhost:3001}
       - NODE_REGISTRY_PATH=data/nodes.json
       - ZONE_REGISTRY_PATH=data/zones.json
       - AUTH_REGISTRY_PATH=data/nodeauth.json
@@ -71,6 +71,7 @@ services:
     restart: unless-stopped
 
   dashboard:
+    container_name: dashboard
     build: ./dashboard
     depends_on:
       orchestrator:
@@ -81,23 +82,27 @@ services:
     security_opt:
       - no-new-privileges:true
     environment:
-      - VITE_API_URL=http://orchestrator:8080
-      - VITE_API_KEY=${API_KEY:?API_KEY is required}
+      - ORCHESTRATOR_URL=http://orchestrator:8080
+      - SIDECAR_URL=http://sidecar:9000
+      - API_KEY=${API_KEY:?API_KEY is required}
+      - ADMIN_KEY=${ADMIN_KEY:?ADMIN_KEY is required}
     networks:
       - kafka-net
 
   artist-portal:
+    container_name: artist-portal
     build:
       context: ./artist-portal
       args:
-        VITE_API_URL: ${ARTIST_API_URL:-http://localhost:8080}
+        VITE_PUBLIC_API_URL: ${ARTIST_API_URL:-http://localhost:8080}
     ports:
       - "3001:3001"
-    read_only: true
+    environment:
+      - ORCHESTRATOR_URL=http://orchestrator:8080
+      - API_KEY=${API_KEY:?API_KEY is required}
+      - ADMIN_KEY=${ADMIN_KEY:?ADMIN_KEY is required}
     tmpfs:
       - /tmp
-      - /var/cache/nginx
-      - /var/run
     security_opt:
       - no-new-privileges:true
     networks:
@@ -105,6 +110,7 @@ services:
     restart: unless-stopped
 
   sidecar:
+    container_name: sidecar
     build: ./sidecar
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
@@ -115,25 +121,7 @@ services:
     environment:
       - ADMIN_KEY=${ADMIN_KEY:?ADMIN_KEY is required}
       - KAFKA_BROKER=kafka:9092
-    networks:
-      - kafka-net
-    restart: unless-stopped
-
-  ops-dashboard:
-    build:
-      context: ./ops-dashboard
-      args:
-        VITE_API_URL: ${OPS_API_URL:-http://localhost:8080}
-        VITE_SIDECAR_URL: ${SIDECAR_URL:-http://localhost:9000}
-    ports:
-      - "3002:3002"
-    read_only: true
-    tmpfs:
-      - /tmp
-      - /var/cache/nginx
-      - /var/run
-    security_opt:
-      - no-new-privileges:true
+      - COMPOSE_PROJECT=${COMPOSE_PROJECT_NAME:-server}
     networks:
       - kafka-net
     restart: unless-stopped

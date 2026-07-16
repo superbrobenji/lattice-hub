@@ -25,6 +25,8 @@ type NodeInfo struct {
 	Zone        string    `json:"zone,omitempty"`
 	Status      string    `json:"status,omitempty"`
 	ReplacedBy  string    `json:"replacedBy,omitempty"`
+	RoutePath   []string  `json:"routePath,omitempty"`
+	ParentID    *uint8    `json:"parentId,omitempty"`
 }
 
 // NodeRegistry manages the state of all known mesh nodes
@@ -204,6 +206,43 @@ func (nr *NodeRegistry) RemoveNode(mac []byte) bool {
 	return exists
 }
 
+// UpdateNodeRoute records the relay hop chain for the origin node and resolves
+// the direct parent (relayMACs[0]) to a NodeID if the relay is already registered.
+// Holds the write lock for the duration to avoid TOCTOU on parent lookup.
+func (nr *NodeRegistry) UpdateNodeRoute(originMAC []byte, relayMACs [][]byte) {
+	nr.mu.Lock()
+	defer nr.mu.Unlock()
+
+	macStr := macToString(originMAC)
+	node, exists := nr.nodes[macStr]
+	if !exists {
+		node = &NodeInfo{
+			MAC:       make([]byte, len(originMAC)),
+			MACString: macStr,
+		}
+		copy(node.MAC, originMAC)
+		nr.nodes[macStr] = node
+	}
+
+	path := make([]string, len(relayMACs))
+	for i, mac := range relayMACs {
+		path[i] = macToString(mac)
+	}
+	node.RoutePath = path
+
+	if len(relayMACs) > 0 {
+		parentMACStr := macToString(relayMACs[0])
+		if parent, ok := nr.nodes[parentMACStr]; ok && parent.NodeID > 0 {
+			id := parent.NodeID
+			node.ParentID = &id
+		} else {
+			node.ParentID = nil
+		}
+	} else {
+		node.ParentID = nil
+	}
+}
+
 // MarkReplaced marks a node as replaced by a new MAC address.
 // Sets Status = "replaced", ReplacedBy = replacedByMACStr, NodeID = 0
 // so the entry is preserved for audit but excluded from active-node queries.
@@ -238,6 +277,8 @@ type persistedNode struct {
 	Zone        string    `json:"zone,omitempty"`
 	Status      string    `json:"status,omitempty"`
 	ReplacedBy  string    `json:"replacedBy,omitempty"`
+	RoutePath   []string  `json:"routePath,omitempty"`
+	ParentID    *uint8    `json:"parentId,omitempty"`
 }
 
 // Persist saves the registry to a JSON file at path.
@@ -256,6 +297,8 @@ func (nr *NodeRegistry) Persist(path string) error {
 			Zone:        n.Zone,
 			Status:      n.Status,
 			ReplacedBy:  n.ReplacedBy,
+			RoutePath:   n.RoutePath,
+			ParentID:    n.ParentID,
 		})
 	}
 	nr.mu.RUnlock()
@@ -305,6 +348,8 @@ func (nr *NodeRegistry) Load(path string) error {
 			Zone:        e.Zone,
 			Status:      e.Status,
 			ReplacedBy:  e.ReplacedBy,
+			RoutePath:   e.RoutePath,
+			ParentID:    e.ParentID,
 		}
 	}
 	slog.Info("Node registry loaded", "count", len(entries), "path", path)

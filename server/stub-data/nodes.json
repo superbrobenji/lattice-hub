@@ -1,0 +1,46 @@
+[
+  {
+    "mac": "aa:bb:cc:dd:ee:01",
+    "adapterType": 2,
+    "uptime": 7200,
+    "lastSeen": "2020-01-01T00:00:00Z",
+    "hopCount": 1,
+    "nodeId": 1,
+    "name": "Entrance-PIR",
+    "zone": "entrance",
+    "status": "active"
+  },
+  {
+    "mac": "aa:bb:cc:dd:ee:02",
+    "adapterType": 3,
+    "uptime": 3600,
+    "lastSeen": "2020-01-01T00:00:00Z",
+    "hopCount": 2,
+    "nodeId": 2,
+    "name": "Hallway-LED",
+    "zone": "hallway",
+    "status": "active"
+  },
+  {
+    "mac": "aa:bb:cc:dd:ee:03",
+    "adapterType": 2,
+    "uptime": 120,
+    "lastSeen": "2020-01-01T00:00:00Z",
+    "hopCount": 3,
+    "nodeId": 3,
+    "name": "Kitchen-PIR",
+    "zone": "kitchen",
+    "status": "active"
+  },
+  {
+    "mac": "aa:bb:cc:dd:ee:04",
+    "adapterType": 4,
+    "uptime": 14400,
+    "lastSeen": "2020-01-01T00:00:00Z",
+    "hopCount": 1,
+    "nodeId": 4,
+    "name": "Lounge-Relay",
+    "zone": "lounge",
+    "status": "active"
+  }
+]

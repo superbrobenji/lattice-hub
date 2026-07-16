@@ -53,25 +53,47 @@ func (h *KafkaHandler) RecentEvents(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	empty := map[string]interface{}{"topic": "motion-trigger", "events": []interface{}{}, "count": 0}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	defer cancel()
+
+	// Determine how many messages exist before reading, so ReadMessage never blocks
+	// waiting for new messages.
+	conn, err := kafka.DialLeader(ctx, "tcp", h.broker, "motion-trigger", 0)
+	if err != nil {
+		WriteJSON(w, http.StatusOK, empty)
+		return
+	}
+	defer func() { _ = conn.Close() }()
+
+	lastOffset, err := conn.ReadLastOffset()
+	if err != nil || lastOffset == 0 {
+		WriteJSON(w, http.StatusOK, empty)
+		return
+	}
+
+	startOffset := lastOffset - int64(n)
+	if startOffset < 0 {
+		startOffset = 0
+	}
+	toRead := lastOffset - startOffset
+
 	reader := kafka.NewReader(kafka.ReaderConfig{
-		Brokers:   []string{h.broker},
-		Topic:     "motion-trigger",
+		Brokers:  []string{h.broker},
+		Topic:    "motion-trigger",
 		Partition: 0,
-		MaxBytes:  1024 * 1024,
+		MaxBytes: 1024 * 1024,
 	})
 	defer func() { _ = reader.Close() }()
 
-	if err := reader.SetOffset(kafka.LastOffset); err != nil {
+	if err := reader.SetOffset(startOffset); err != nil {
 		WriteJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to seek"})
 		return
 	}
 
-	// Seek to end then read last N
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	var events []map[string]interface{}
-	for i := 0; i < n; i++ {
+	events := make([]map[string]interface{}, 0, toRead)
+	for i := int64(0); i < toRead; i++ {
 		msg, err := reader.ReadMessage(ctx)
 		if err != nil {
 			break

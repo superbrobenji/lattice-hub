@@ -1,0 +1,9 @@
+{
+  "nodes": [
+    { "mac": "aa:bb:cc:dd:ee:01", "name": "Entrance-PIR", "type": "pir", "routePath": [], "heartbeatMs": 3000 },
+    { "mac": "aa:bb:cc:dd:ee:02", "name": "Hallway-LED", "type": "led", "routePath": ["aa:bb:cc:dd:ee:01"], "heartbeatMs": 3000 },
+    { "mac": "aa:bb:cc:dd:ee:03", "name": "Kitchen-PIR", "type": "pir", "routePath": ["aa:bb:cc:dd:ee:02", "aa:bb:cc:dd:ee:01"], "heartbeatMs": 3000, "silent": true },
+    { "mac": "aa:bb:cc:dd:ee:04", "name": "Lounge-Relay", "type": "relay", "routePath": [], "heartbeatMs": 3000 }
+  ],
+  "routeReportMs": 6000
+}
