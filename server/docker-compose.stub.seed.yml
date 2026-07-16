@@ -1,4 +1,4 @@
-# Seed overlay — mounts stub-data/ into the orchestrator as read-only seed files.
+# Seed overlay — mounts stub-data/ into the orchestrator and simulator.
 # Apply on top of docker-compose.stub.yml: make stub-seed
 
 services:
@@ -8,3 +8,9 @@ services:
     environment:
       NODE_REGISTRY_PATH: /app/stub-seed/nodes.json
       ZONE_REGISTRY_PATH: /app/stub-seed/zones.json
+
+  mesh-sim:
+    volumes:
+      - ./stub-data:/app/stub-seed:ro
+    environment:
+      SIM_NODES_PATH: /app/stub-seed/sim-nodes.json

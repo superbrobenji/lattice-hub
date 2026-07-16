@@ -7,11 +7,13 @@ build correctness, type safety, linting, and security scanning automatically.
 
 ## Before opening a PR
 
-- [ ] `go test ./...` passes in `server/orchestrator/`
-- [ ] `go vet ./...` clean in `server/orchestrator/`
-- [ ] `gofmt -l .` returns no files in `server/orchestrator/`
-- [ ] `npm run typecheck` passes in `server/dashboard/`
-- [ ] `npm run lint` clean in `server/dashboard/`
+- [ ] `go test ./...` passes in `server/orchestrator/` and `server/sidecar/`
+- [ ] `go vet ./...` clean in `server/orchestrator/` and `server/sidecar/`
+- [ ] `gofmt -l .` returns no files in `server/orchestrator/` and `server/sidecar/`
+- [ ] `npm run typecheck` passes in `server/dashboard/` and `server/artist-portal/`
+- [ ] `npm run lint` clean in `server/dashboard/` and `server/artist-portal/`
+- [ ] `npm run test` passes in `server/artist-portal/`
+- [ ] `make e2e` passes (Playwright suite against the stub stack)
 - [ ] `docker compose build` succeeds in `server/`
 - [ ] `env.example` updated if new environment variables added
 - [ ] Documentation updated if behaviour changes
@@ -42,12 +44,14 @@ ci/<topic>           # CI/tooling changes
 ## TypeScript standards
 
 - `tsc --noEmit` (via `npm run typecheck`) must pass — no type errors
-- ESLint (`npm run lint`) must be clean
+- Linting (`npm run lint`) must be clean — the dashboard uses ESLint, the
+  artist portal uses oxlint
 - Strict mode is enabled — no `any` casts without justification
 
 ## Docker
 
-- Both `orchestrator` and `dashboard` Dockerfiles must build without error
+- All Dockerfiles (`orchestrator`, `dashboard`, `artist-portal`, `sidecar`,
+  `logging`, plus `orchestrator/Dockerfile.mesh-sim`) must build without error
 - If you change environment variables, update `server/env.example`
 
 ## CI pipeline (GitHub Actions)
@@ -57,11 +61,17 @@ All jobs must be green before a PR can merge:
 
 | Job | What it checks |
 |-----|----------------|
-| `go-test` | `go test ./...` + `go vet ./...` |
-| `go-lint` | golangci-lint default ruleset |
-| `ts-build` | TypeScript strict typecheck |
-| `ts-lint` | ESLint |
-| `docker-build` | Both Dockerfiles build successfully |
+| `go-test` | `go test ./...` + `go vet ./...` (orchestrator) |
+| `go-lint` | golangci-lint default ruleset (orchestrator) |
+| `sidecar-test` | `go test ./...` + `go vet ./...` (sidecar) |
+| `sidecar-lint` | golangci-lint default ruleset (sidecar) |
+| `ts-build` | TypeScript strict typecheck (dashboard) |
+| `ts-lint` | ESLint (dashboard) |
+| `dashboard-build` | Production build (dashboard) |
+| `artist-portal-build` | Production build (artist portal) |
+| `artist-portal-lint` | oxlint (artist portal) |
+| `docker-build` | `docker compose build` + mesh-sim image build |
+| `e2e` | Playwright end-to-end suite against the stub stack |
 
 CodeQL security analysis and dependency vulnerability review run separately and
 are also required to pass.

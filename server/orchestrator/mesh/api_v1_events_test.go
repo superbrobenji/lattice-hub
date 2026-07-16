@@ -84,6 +84,31 @@ func TestV1Events_NonFlusher_Returns500(t *testing.T) {
 	}
 }
 
+// TestV1Events_ThroughRouter_DoesNotReturn500 exercises GET /api/v1/events
+// through the full instrumented router (api.ServeHTTP), i.e. behind
+// InstrumentHandler, unlike TestV1Events_StreamsEventToClient above which
+// calls api.v1Events directly. This catches the case where the metrics
+// middleware's ResponseWriter wrapper fails to satisfy http.Flusher, which
+// would make the SSE handler always return 500 in production.
+func TestV1Events_ThroughRouter_DoesNotReturn500(t *testing.T) {
+	api, _ := newV1TestServer(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+	defer cancel()
+
+	req := httptest.NewRequest("GET", "/api/v1/events", nil).WithContext(ctx)
+	req.Header.Set("Authorization", "Bearer test-key")
+	w := httptest.NewRecorder()
+
+	api.ServeHTTP(w, req)
+
+	if w.Code == http.StatusInternalServerError {
+		t.Fatalf("expected streaming to work through InstrumentHandler, got 500: %s", w.Body.String())
+	}
+	if ct := w.Header().Get("Content-Type"); ct != "text/event-stream" {
+		t.Errorf("expected Content-Type text/event-stream, got %q (body: %s)", ct, w.Body.String())
+	}
+}
+
 func TestV1Status_ReturnsStructuredStatus(t *testing.T) {
 	api, ms := newV1TestServer(t)
 	mac := []byte{0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF}

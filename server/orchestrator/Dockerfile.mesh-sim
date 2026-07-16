@@ -1,0 +1,18 @@
+FROM golang:1.23-alpine AS builder
+RUN apk add --no-cache git
+WORKDIR /app
+COPY go.mod go.sum ./
+RUN go mod download
+COPY . .
+RUN CGO_ENABLED=0 GOOS=linux go build -o mesh-sim ./cmd/mesh-sim
+
+FROM alpine:latest
+RUN apk --no-cache add ca-certificates wget
+RUN addgroup -g 1001 appuser && adduser -D -u 1001 -G appuser appuser
+WORKDIR /app
+COPY --from=builder /app/mesh-sim .
+USER appuser
+EXPOSE 9000 9001
+HEALTHCHECK --interval=5s --timeout=3s --start-period=2s --retries=5 \
+    CMD wget --no-verbose --tries=1 -O /dev/null http://localhost:9001/sim/state || exit 1
+CMD ["./mesh-sim"]
