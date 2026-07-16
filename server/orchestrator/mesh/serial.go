@@ -5,6 +5,9 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"net"
+	"strings"
+	"time"
 
 	"go.bug.st/serial"
 	"google.golang.org/protobuf/proto"
@@ -24,6 +27,35 @@ type realSerialPort struct {
 
 func (p *realSerialPort) Flush() error {
 	return p.ResetInputBuffer()
+}
+
+// tcpPort adapts a net.Conn to the SerialPort interface (mesh simulator link).
+type tcpPort struct{ net.Conn }
+
+func (t *tcpPort) Flush() error { return nil }
+
+// openTransport opens the configured mesh transport. A spec beginning with
+// "tcp://" dials a TCP stream (used by the stub-mode mesh simulator, which
+// may still be starting — hence the retry loop); anything else is a serial
+// device path.
+func openTransport(spec string, mode *serial.Mode) (SerialPort, error) {
+	if addr, ok := strings.CutPrefix(spec, "tcp://"); ok {
+		var lastErr error
+		for range 30 {
+			conn, err := net.DialTimeout("tcp", addr, 2*time.Second)
+			if err == nil {
+				return &tcpPort{conn}, nil
+			}
+			lastErr = err
+			time.Sleep(time.Second)
+		}
+		return nil, fmt.Errorf("dial mesh sim %s: %w", spec, lastErr)
+	}
+	rawPort, err := serial.Open(spec, mode)
+	if err != nil {
+		return nil, err
+	}
+	return &realSerialPort{rawPort}, nil
 }
 
 // SerialComm handles serial communication with framing

@@ -81,3 +81,15 @@ func (rw *statusResponseWriter) WriteHeader(code int) {
 	rw.status = code
 	rw.ResponseWriter.WriteHeader(code)
 }
+
+// Flush delegates to the underlying ResponseWriter's Flush method when it
+// supports streaming (http.Flusher). statusResponseWriter embeds the
+// http.ResponseWriter interface rather than a concrete type, so Go does not
+// automatically promote a Flush method from the underlying writer -- without
+// this, handlers behind InstrumentHandler that need to stream (e.g. SSE)
+// could never type-assert http.Flusher successfully.
+func (rw *statusResponseWriter) Flush() {
+	if f, ok := rw.ResponseWriter.(http.Flusher); ok {
+		f.Flush()
+	}
+}
