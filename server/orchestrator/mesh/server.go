@@ -368,20 +368,6 @@ func (ms *MeshServer) handleMessage(msg *MeshMessage) error {
 		return nil
 	}
 
-	// Replay check (only for proto v2 messages with epoch/seq set)
-	if msg.ProtoVersion == 2 && msg.EpochNum > 0 {
-		if len(msg.OriginMacAddress) != 6 {
-			slog.Warn("Dropping message: invalid OriginMacAddress length", "len", len(msg.OriginMacAddress))
-			return nil
-		}
-		var mac [6]byte
-		copy(mac[:], msg.OriginMacAddress)
-		if ms.replayCache.IsDuplicate(mac, msg.EpochNum, msg.SeqNum) {
-			slog.Warn("Replayed message dropped", "origin", fmt.Sprintf("%x", mac), "epoch", msg.EpochNum, "seq", msg.SeqNum)
-			return nil
-		}
-	}
-
 	// Log the message to Kafka
 	if err := ms.logMessageToKafka(msg, "incoming"); err != nil {
 		slog.Warn("Failed to log incoming message to Kafka", "error", err)
