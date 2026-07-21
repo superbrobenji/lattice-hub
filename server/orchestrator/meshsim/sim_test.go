@@ -50,7 +50,7 @@ func TestHealthFrameLayout(t *testing.T) {
 	if led == nil {
 		t.Fatal("no health frame from LED node")
 	}
-	if led.DataType != int32(mesh.AdapterTypeSerial) || led.ProtoVersion != 2 || led.EpochNum != 0 {
+	if led.DataType != int32(mesh.AdapterTypeSerial) || led.ProtoVersion != 3 || led.EpochNum != 0 {
 		t.Fatalf("bad envelope: %+v", led)
 	}
 	if len(led.Data) < 12 || led.Data[1] != 3 {
@@ -70,7 +70,7 @@ func TestRouteReportFrame(t *testing.T) {
 	done := make(chan struct{})
 	go func() { sim.tick(time.Now().Add(time.Hour)); close(done) }()
 	var route *mesh.MeshMessage
-	for range 4 { // 2 health + up to 2 route reports (entrance has empty path → still reports)
+	for range 4 { // 2 health + up to 2 route reports
 		msg, err := orch.ReadFrame()
 		if err != nil {
 			t.Fatal(err)
@@ -83,11 +83,15 @@ func TestRouteReportFrame(t *testing.T) {
 	if route == nil {
 		t.Fatal("no route report from LED node")
 	}
-	if route.Data[0] != byte(mesh.OpRouteReport) || route.Data[1] != 1 {
-		t.Fatalf("bad route payload: %v", route.Data)
+	// Protocol v3: path is in header fields, not Data[].
+	if route.RouteLen == nil || *route.RouteLen != 1 {
+		t.Fatalf("RouteLen = %v, want 1", route.RouteLen)
 	}
-	if route.Data[7] != 0x01 { // relay MAC last byte at offset 2+5
-		t.Fatalf("relay MAC wrong: %v", route.Data[2:8])
+	if len(route.RoutePath) < mesh.MACAddressLength {
+		t.Fatalf("RoutePath too short: %v", route.RoutePath)
+	}
+	if route.RoutePath[5] != 0x01 { // relay MAC last byte: aa:bb:cc:dd:ee:01
+		t.Fatalf("relay MAC wrong: %v", route.RoutePath[:6])
 	}
 }
 
@@ -100,7 +104,7 @@ func TestCommandAckEchoesToken(t *testing.T) {
 		MessageType:  uint32(mesh.MessageTypeSerialCmdBroadcast),
 		DataType:     int32(mesh.AdapterTypeLED),
 		Data:         payload,
-		ProtoVersion: 2,
+		ProtoVersion: 3,
 	}
 	go func() {
 		if err := orch.WriteFrame(cmd); err != nil {
@@ -130,7 +134,7 @@ func TestOfflineNodeDoesNotAck(t *testing.T) {
 	}
 	payload := make([]byte, mesh.MaxDataLength)
 	payload[0] = byte(mesh.OpLEDSolid)
-	cmd := &mesh.MeshMessage{MessageType: uint32(mesh.MessageTypeSerialCmdBroadcast), DataType: int32(mesh.AdapterTypeLED), Data: payload, ProtoVersion: 2}
+	cmd := &mesh.MeshMessage{MessageType: uint32(mesh.MessageTypeSerialCmdBroadcast), DataType: int32(mesh.AdapterTypeLED), Data: payload, ProtoVersion: 3}
 	go orch.WriteFrame(cmd) //nolint:errcheck
 	// Force a tick afterwards; the only frames should be health/route from the PIR node, no 0xE0.
 	go sim.tick(time.Now().Add(time.Hour))
