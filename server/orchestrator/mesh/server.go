@@ -44,7 +44,6 @@ type MeshServer struct {
 
 	// Auth
 	authRegistry *nodeauth.Registry
-	replayCache  *nodeauth.ReplayCache
 	authPath     string        // Path to persist registry JSON
 	stopPersist  chan struct{}
 
@@ -121,7 +120,6 @@ func NewMeshServer(config MeshServerConfig) *MeshServer {
 		messageBuilder:   NewMessageBuilder(),
 		eventStore:       config.EventStore,
 		authRegistry:     registry,
-		replayCache:      nodeauth.NewReplayCache(64),
 		authPath:         config.AuthRegistryPath,
 		stopPersist:      make(chan struct{}),
 		nodeRegistryPath: config.NodeRegistryPath,
@@ -868,7 +866,7 @@ func (ms *MeshServer) SendNodeData(dataType int32, data []byte) error {
 	payload := make([]byte, MaxDataLength)
 	copy(payload, data)
 	msg := &MeshMessage{
-		ProtoVersion: 2,
+		ProtoVersion: 3,
 		MessageType:  MessageTypeSerialCmdBroadcast,
 		DataType:     dataType,
 		Data:         payload,
