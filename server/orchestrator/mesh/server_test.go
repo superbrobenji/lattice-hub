@@ -203,6 +203,17 @@ func TestHandleMessage_ProtoVersionGuard(t *testing.T) {
 	healthData[1] = byte(AdapterTypePIR)
 	copy(healthData[2:8], mac)
 
+	// v0: legacy pre-security nodes; dropped — no backward compat.
+	if err := ms.handleMessage(&MeshMessage{
+		ProtoVersion: 0, MessageType: MessageTypeAdapterData,
+		DataType: AdapterTypeSerial, Data: healthData, OriginMacAddress: mac,
+	}); err != nil {
+		t.Fatalf("handleMessage(v0) returned unexpected error: %v", err)
+	}
+	if _, ok := ms.GetNodeRegistry().GetNode(mac); ok {
+		t.Error("v0 message must be dropped — legacy nodes must reflash")
+	}
+
 	// v1: must be dropped.
 	if err := ms.handleMessage(&MeshMessage{
 		ProtoVersion: 1, MessageType: MessageTypeAdapterData,

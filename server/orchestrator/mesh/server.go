@@ -361,7 +361,7 @@ func (ms *MeshServer) messageProcessor(comm *SerialComm, label string) {
 func (ms *MeshServer) handleMessage(msg *MeshMessage) error {
 	// Proto version check — 0 is legacy (pre-security), 3 is current (protocol v3).
 	// Flag-day: v2 nodes must be reflashed. Drop 1, 2, and any future unknown version.
-	if msg.ProtoVersion != 0 && msg.ProtoVersion != 3 {
+	if msg.ProtoVersion != 3 {
 		slog.Warn("Unsupported proto version — dropping", "version", msg.ProtoVersion, "origin", fmt.Sprintf("%x", msg.OriginMacAddress))
 		return nil
 	}
