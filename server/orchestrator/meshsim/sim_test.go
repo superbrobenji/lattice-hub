@@ -49,6 +49,7 @@ func TestHealthFrameLayout(t *testing.T) {
 	led := seen["aa:bb:cc:dd:ee:02"]
 	if led == nil {
 		t.Fatal("no health frame from LED node")
+		return
 	}
 	if led.DataType != int32(mesh.AdapterTypeSerial) || led.ProtoVersion != 3 || led.EpochNum != 0 {
 		t.Fatalf("bad envelope: %+v", led)
@@ -82,6 +83,7 @@ func TestRouteReportFrame(t *testing.T) {
 	<-done
 	if route == nil {
 		t.Fatal("no route report from LED node")
+		return
 	}
 	// Protocol v3: path is in header fields, not Data[].
 	if route.RouteLen == nil || *route.RouteLen != 1 {
