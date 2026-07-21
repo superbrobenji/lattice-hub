@@ -151,7 +151,7 @@ func TestOfflineNodeDoesNotAck(t *testing.T) {
 
 func TestHealthReqMakesAllNodesReport(t *testing.T) {
 	sim, orch := newTestSim(t, seededCfg())
-	req := &mesh.MeshMessage{MessageType: uint32(mesh.MessageTypeSerialCmdBroadcast), DataType: int32(mesh.AdapterTypeSerial), Data: []byte{byte(mesh.OpHealthReq)}, ProtoVersion: 2}
+	req := &mesh.MeshMessage{MessageType: uint32(mesh.MessageTypeSerialCmdBroadcast), DataType: int32(mesh.AdapterTypeSerial), Data: []byte{byte(mesh.OpHealthReq)}, ProtoVersion: 3}
 	go orch.WriteFrame(req)           //nolint:errcheck
 	time.Sleep(50 * time.Millisecond) // let HandleFrame mark nodes due
 	go sim.tick(time.Now())
