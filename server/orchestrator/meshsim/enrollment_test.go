@@ -31,7 +31,7 @@ func TestJoinAckApprovesAndStartsHeartbeat(t *testing.T) {
 		t.Fatal(err)
 	}
 	n := sim.snapshot()[0]
-	ack := &mesh.MeshMessage{MessageType: uint32(mesh.MessageTypeJoinAck), TargetMacAddress: []byte{0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0x99}, PublicKey: n.PublicKey[:], ProtoVersion: 2}
+	ack := &mesh.MeshMessage{MessageType: uint32(mesh.MessageTypeJoinAck), TargetMacAddress: []byte{0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0x99}, PublicKey: n.PublicKey[:], ProtoVersion: 3}
 	go func() {
 		if err := orch.WriteFrame(ack); err != nil {
 			t.Error(err)
@@ -53,7 +53,7 @@ func TestJoinAckEmptyKeyRejectsAndStopsBroadcast(t *testing.T) {
 	if err := sim.SpawnNode("aa:bb:cc:dd:ee:98", "pir"); err != nil {
 		t.Fatal(err)
 	}
-	rej := &mesh.MeshMessage{MessageType: uint32(mesh.MessageTypeJoinAck), TargetMacAddress: []byte{0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0x98}, ProtoVersion: 2}
+	rej := &mesh.MeshMessage{MessageType: uint32(mesh.MessageTypeJoinAck), TargetMacAddress: []byte{0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0x98}, ProtoVersion: 3}
 	go func() {
 		if err := orch.WriteFrame(rej); err != nil {
 			t.Error(err)

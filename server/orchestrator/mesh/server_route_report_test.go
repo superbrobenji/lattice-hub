@@ -5,16 +5,16 @@ import (
 )
 
 func buildRouteReportMsg(originMAC []byte, relayMACs [][]byte) *MeshMessage {
-	data := make([]byte, MaxDataLength)
-	data[0] = OpRouteReport
-	data[1] = byte(len(relayMACs))
+	routePath := make([]byte, len(relayMACs)*MACAddressLength)
 	for i, mac := range relayMACs {
-		copy(data[2+i*MACAddressLength:], mac)
+		copy(routePath[i*MACAddressLength:], mac)
 	}
+	routeLen := uint32(len(relayMACs))
 	return &MeshMessage{
 		MessageType:      MessageTypeRouteReport,
 		OriginMacAddress: originMAC,
-		Data:             data,
+		RouteLen:         &routeLen,
+		RoutePath:        routePath,
 	}
 }
 
@@ -38,43 +38,41 @@ func TestHandleRouteReport_UpdatesRegistry(t *testing.T) {
 	}
 }
 
-func TestHandleRouteReport_BadOpcode_Discards(t *testing.T) {
+func TestHandleRouteReport_RouteLenTooLarge_Discards(t *testing.T) {
 	ms := newTestMeshServer(t)
 	origin := []byte{0x01, 0x02, 0x03, 0x04, 0x05, 0x06}
-	data := make([]byte, MaxDataLength)
-	data[0] = 0xFF // wrong opcode
-	data[1] = 0
+	routeLen := uint32(11) // > 10, too large
 	msg := &MeshMessage{
 		MessageType:      MessageTypeRouteReport,
 		OriginMacAddress: origin,
-		Data:             data,
+		RouteLen:         &routeLen,
+		RoutePath:        make([]byte, 11*MACAddressLength),
 	}
 	if err := ms.handleRouteReport(msg); err != nil {
 		t.Errorf("expected nil error on discard, got %v", err)
 	}
 	_, ok := ms.nodeRegistry.GetNode(origin)
 	if ok {
-		t.Error("origin should not be in registry after bad-opcode discard")
+		t.Error("origin must not be in registry after oversized RouteLen discard")
 	}
 }
 
-func TestHandleRouteReport_PathLenTooLarge_Discards(t *testing.T) {
+func TestHandleRouteReport_TruncatedRoutePath_Discards(t *testing.T) {
 	ms := newTestMeshServer(t)
 	origin := []byte{0x01, 0x02, 0x03, 0x04, 0x05, 0x06}
-	data := make([]byte, MaxDataLength)
-	data[0] = OpRouteReport
-	data[1] = 11 // > 10, too large
+	routeLen := uint32(2)
 	msg := &MeshMessage{
 		MessageType:      MessageTypeRouteReport,
 		OriginMacAddress: origin,
-		Data:             data,
+		RouteLen:         &routeLen,
+		RoutePath:        make([]byte, 5), // only 5 bytes but 2*6=12 expected
 	}
 	if err := ms.handleRouteReport(msg); err != nil {
 		t.Errorf("expected nil error on discard, got %v", err)
 	}
 	_, ok := ms.nodeRegistry.GetNode(origin)
 	if ok {
-		t.Error("origin should not be in registry after oversized path_len discard")
+		t.Error("origin must not be in registry after truncated RoutePath discard")
 	}
 }
 

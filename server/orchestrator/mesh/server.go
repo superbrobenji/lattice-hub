@@ -44,7 +44,6 @@ type MeshServer struct {
 
 	// Auth
 	authRegistry *nodeauth.Registry
-	replayCache  *nodeauth.ReplayCache
 	authPath     string        // Path to persist registry JSON
 	stopPersist  chan struct{}
 
@@ -121,7 +120,6 @@ func NewMeshServer(config MeshServerConfig) *MeshServer {
 		messageBuilder:   NewMessageBuilder(),
 		eventStore:       config.EventStore,
 		authRegistry:     registry,
-		replayCache:      nodeauth.NewReplayCache(64),
 		authPath:         config.AuthRegistryPath,
 		stopPersist:      make(chan struct{}),
 		nodeRegistryPath: config.NodeRegistryPath,
@@ -361,25 +359,11 @@ func (ms *MeshServer) messageProcessor(comm *SerialComm, label string) {
 
 // handleMessage processes a received mesh message
 func (ms *MeshServer) handleMessage(msg *MeshMessage) error {
-	// Proto version check — version 0 means legacy (pre-security) node; allow it.
-	// Any protoVersion > 0 that is not 2 is an unknown future version; drop it.
-	if msg.ProtoVersion > 0 && msg.ProtoVersion != 2 {
+	// Proto version check — 0 is legacy (pre-security), 3 is current (protocol v3).
+	// Flag-day: v2 nodes must be reflashed. Drop 1, 2, and any future unknown version.
+	if msg.ProtoVersion != 3 {
 		slog.Warn("Unsupported proto version — dropping", "version", msg.ProtoVersion, "origin", fmt.Sprintf("%x", msg.OriginMacAddress))
 		return nil
-	}
-
-	// Replay check (only for proto v2 messages with epoch/seq set)
-	if msg.ProtoVersion == 2 && msg.EpochNum > 0 {
-		if len(msg.OriginMacAddress) != 6 {
-			slog.Warn("Dropping message: invalid OriginMacAddress length", "len", len(msg.OriginMacAddress))
-			return nil
-		}
-		var mac [6]byte
-		copy(mac[:], msg.OriginMacAddress)
-		if ms.replayCache.IsDuplicate(mac, msg.EpochNum, msg.SeqNum) {
-			slog.Warn("Replayed message dropped", "origin", fmt.Sprintf("%x", mac), "epoch", msg.EpochNum, "seq", msg.SeqNum)
-			return nil
-		}
 	}
 
 	// Log the message to Kafka
@@ -580,31 +564,27 @@ func (ms *MeshServer) handleMasterBeacon(msg *MeshMessage) error {
 }
 
 // handleRouteReport processes a MESH_TYPE_ROUTE_REPORT (5) message.
-// The payload encodes the full relay hop chain from the origin to the master.
-// Silently discards frames with a bad opcode, oversized path_len, or a
-// truncated payload — none of these are actionable errors for the caller.
+// Protocol v3: the relay path is in the plaintext RouteLen/RoutePath header
+// fields; the Data payload is sealed ciphertext and is never read here.
 func (ms *MeshServer) handleRouteReport(msg *MeshMessage) error {
-	if len(msg.Data) < 2 || msg.Data[0] != OpRouteReport {
-		slog.Warn("Malformed route report — bad opcode or too short",
-			"origin", macToString(msg.OriginMacAddress))
-		return nil
-	}
-	pathLen := int(msg.Data[1])
+	pathLen := int(msg.GetRouteLen())
+	routePath := msg.GetRoutePath()
 	if pathLen > 10 {
-		slog.Warn("Route report path_len exceeds maximum",
-			"pathLen", pathLen, "origin", macToString(msg.OriginMacAddress))
+		slog.Warn("Route report RouteLen exceeds maximum",
+			"routeLen", pathLen, "origin", macToString(msg.OriginMacAddress))
 		return nil
 	}
-	if len(msg.Data) < 2+pathLen*MACAddressLength {
-		slog.Warn("Route report payload too short for declared path_len",
-			"pathLen", pathLen, "origin", macToString(msg.OriginMacAddress))
+	if len(routePath) < pathLen*MACAddressLength {
+		slog.Warn("Route report RoutePath too short for declared RouteLen",
+			"routeLen", pathLen, "routePathLen", len(routePath),
+			"origin", macToString(msg.OriginMacAddress))
 		return nil
 	}
 
 	relayMACs := make([][]byte, pathLen)
 	for i := 0; i < pathLen; i++ {
 		mac := make([]byte, MACAddressLength)
-		copy(mac, msg.Data[2+i*MACAddressLength:2+(i+1)*MACAddressLength])
+		copy(mac, routePath[i*MACAddressLength:(i+1)*MACAddressLength])
 		relayMACs[i] = mac
 	}
 
@@ -886,7 +866,7 @@ func (ms *MeshServer) SendNodeData(dataType int32, data []byte) error {
 	payload := make([]byte, MaxDataLength)
 	copy(payload, data)
 	msg := &MeshMessage{
-		ProtoVersion: 2,
+		ProtoVersion: 3,
 		MessageType:  MessageTypeSerialCmdBroadcast,
 		DataType:     dataType,
 		Data:         payload,
