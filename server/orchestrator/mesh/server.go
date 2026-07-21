@@ -566,31 +566,26 @@ func (ms *MeshServer) handleMasterBeacon(msg *MeshMessage) error {
 }
 
 // handleRouteReport processes a MESH_TYPE_ROUTE_REPORT (5) message.
-// The payload encodes the full relay hop chain from the origin to the master.
-// Silently discards frames with a bad opcode, oversized path_len, or a
-// truncated payload — none of these are actionable errors for the caller.
+// Protocol v3: the relay path is in the plaintext RouteLen/RoutePath header
+// fields; the Data payload is sealed ciphertext and is never read here.
 func (ms *MeshServer) handleRouteReport(msg *MeshMessage) error {
-	if len(msg.Data) < 2 || msg.Data[0] != OpRouteReport {
-		slog.Warn("Malformed route report — bad opcode or too short",
-			"origin", macToString(msg.OriginMacAddress))
-		return nil
-	}
-	pathLen := int(msg.Data[1])
+	pathLen := int(msg.GetRouteLen())
 	if pathLen > 10 {
-		slog.Warn("Route report path_len exceeds maximum",
-			"pathLen", pathLen, "origin", macToString(msg.OriginMacAddress))
+		slog.Warn("Route report RouteLen exceeds maximum",
+			"routeLen", pathLen, "origin", macToString(msg.OriginMacAddress))
 		return nil
 	}
-	if len(msg.Data) < 2+pathLen*MACAddressLength {
-		slog.Warn("Route report payload too short for declared path_len",
-			"pathLen", pathLen, "origin", macToString(msg.OriginMacAddress))
+	if len(msg.RoutePath) < pathLen*MACAddressLength {
+		slog.Warn("Route report RoutePath too short for declared RouteLen",
+			"routeLen", pathLen, "routePathLen", len(msg.RoutePath),
+			"origin", macToString(msg.OriginMacAddress))
 		return nil
 	}
 
 	relayMACs := make([][]byte, pathLen)
 	for i := 0; i < pathLen; i++ {
 		mac := make([]byte, MACAddressLength)
-		copy(mac, msg.Data[2+i*MACAddressLength:2+(i+1)*MACAddressLength])
+		copy(mac, msg.RoutePath[i*MACAddressLength:(i+1)*MACAddressLength])
 		relayMACs[i] = mac
 	}
 
