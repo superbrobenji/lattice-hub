@@ -15,4 +15,9 @@ message MeshMessage {
   uint32 seqNum            = 9;  // per-boot sequence counter (was field 10 — CORRECTED)
   uint32 protoVersion      = 10; // must be 1 for v1 messages (was field 8 — CORRECTED)
   bytes  public_key        = 11; // enrollment/join_ack: 32-byte Curve25519 public key
+  optional uint32 routeLen          = 12; // v3: relay path length (header field)
+  optional bytes  routePath         = 13; // v3: relay MACs — routeLen × 6 bytes, forward order
+  optional bytes  authTag           = 14; // v3: ChaCha20-Poly1305 tag over data[64] (firmware-only)
+  optional bytes  secondaryMasterMac = 15; // v3: dual-master: secondary master MAC in JOIN_ACK (Phase 4)
+  optional bytes  secondaryPublicKey  = 16; // v3: dual-master: secondary master Curve25519 pubkey (Phase 4)
 }
