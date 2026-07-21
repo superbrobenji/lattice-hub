@@ -570,14 +570,15 @@ func (ms *MeshServer) handleMasterBeacon(msg *MeshMessage) error {
 // fields; the Data payload is sealed ciphertext and is never read here.
 func (ms *MeshServer) handleRouteReport(msg *MeshMessage) error {
 	pathLen := int(msg.GetRouteLen())
+	routePath := msg.GetRoutePath()
 	if pathLen > 10 {
 		slog.Warn("Route report RouteLen exceeds maximum",
 			"routeLen", pathLen, "origin", macToString(msg.OriginMacAddress))
 		return nil
 	}
-	if len(msg.RoutePath) < pathLen*MACAddressLength {
+	if len(routePath) < pathLen*MACAddressLength {
 		slog.Warn("Route report RoutePath too short for declared RouteLen",
-			"routeLen", pathLen, "routePathLen", len(msg.RoutePath),
+			"routeLen", pathLen, "routePathLen", len(routePath),
 			"origin", macToString(msg.OriginMacAddress))
 		return nil
 	}
@@ -585,7 +586,7 @@ func (ms *MeshServer) handleRouteReport(msg *MeshMessage) error {
 	relayMACs := make([][]byte, pathLen)
 	for i := 0; i < pathLen; i++ {
 		mac := make([]byte, MACAddressLength)
-		copy(mac, msg.RoutePath[i*MACAddressLength:(i+1)*MACAddressLength])
+		copy(mac, routePath[i*MACAddressLength:(i+1)*MACAddressLength])
 		relayMACs[i] = mac
 	}
 
