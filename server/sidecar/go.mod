@@ -5,7 +5,7 @@ go 1.26.4
 require (
 	github.com/containerd/errdefs v1.0.0
 	github.com/gorilla/mux v1.8.1
-	github.com/moby/moby/client v0.5.0
+	github.com/moby/moby/client v0.5.1
 	github.com/segmentio/kafka-go v0.4.51
 )
 
