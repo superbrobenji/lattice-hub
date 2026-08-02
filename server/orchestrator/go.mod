@@ -9,7 +9,7 @@ require (
 	github.com/segmentio/kafka-go v0.4.51
 	github.com/superbrobenji/lattice-protocol v0.4.0
 	go.bug.st/serial v1.8.0
-	golang.org/x/crypto v0.34.0
+	golang.org/x/crypto v0.54.0
 	google.golang.org/protobuf v1.36.11
 )
 
@@ -24,5 +24,5 @@ require (
 	github.com/prometheus/common v0.66.1 // indirect
 	github.com/prometheus/procfs v0.16.1 // indirect
 	go.yaml.in/yaml/v2 v2.4.2 // indirect
-	golang.org/x/sys v0.43.0 // indirect
+	golang.org/x/sys v0.47.0 // indirect
 )
