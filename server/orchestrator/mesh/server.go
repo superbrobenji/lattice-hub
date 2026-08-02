@@ -70,6 +70,11 @@ type MeshServer struct {
 	// Command tracking
 	commandStore *CommandStore
 
+	// Master keypair and MAC
+	masterPublicKey  [32]byte
+	masterPrivateKey [32]byte
+	masterMAC        [6]byte
+
 	// Runtime state
 	ctx     context.Context
 	cancel  context.CancelFunc
@@ -88,6 +93,8 @@ type MeshServerConfig struct {
 	AuthRegistryPath string // e.g. "data/nodeauth.json"
 	NodeRegistryPath string // e.g. "data/nodes.json"
 	ZoneRegistryPath string // e.g. "data/zones.json"
+	MasterKeyPath    string // e.g. "data/masterkey.json"
+	MasterMAC        [6]byte
 }
 
 // NewMeshServer creates a new mesh server
@@ -115,7 +122,7 @@ func NewMeshServer(config MeshServerConfig) *MeshServer {
 		}
 	}
 
-	return &MeshServer{
+	ms := &MeshServer{
 		nodeRegistry:     nodeRegistry,
 		messageBuilder:   NewMessageBuilder(),
 		eventStore:       config.EventStore,
@@ -133,9 +140,22 @@ func NewMeshServer(config MeshServerConfig) *MeshServer {
 		zoneRegistry:     zoneRegistry,
 		zoneRegistryPath: config.ZoneRegistryPath,
 		commandStore:     NewCommandStore(),
+		masterMAC:        config.MasterMAC,
 		ctx:              ctx,
 		cancel:           cancel,
 	}
+
+	if config.MasterKeyPath != "" {
+		kp, err := LoadOrGenerateMasterKey(config.MasterKeyPath)
+		if err != nil {
+			slog.Warn("Failed to load or generate master keypair", "error", err)
+		} else {
+			ms.masterPublicKey = kp.PublicKey
+			ms.masterPrivateKey = kp.PrivateKey
+		}
+	}
+
+	return ms
 }
 
 // Start starts the mesh server
@@ -674,11 +694,16 @@ func (ms *MeshServer) ApproveEnrollment(macStr string, params ApprovalParams) er
 	}
 
 	if ms.serialComm != nil {
-		// Send JOIN_ACK
+		// Send JOIN_ACK with protocol v3 fields
+		fingerprint := make([]byte, MaxDataLength)
+		copy(fingerprint[0:4], node.PublicKey[:4])
 		ackMsg := &MeshMessage{
+			ProtoVersion:     3,
 			MessageType:      MessageTypeJoinAck,
+			OriginMacAddress: ms.masterMAC[:],
 			TargetMacAddress: node.MAC[:],
-			PublicKey:        node.PublicKey[:],
+			PublicKey:        ms.masterPublicKey[:],
+			Data:             fingerprint,
 		}
 		if err := ms.activeOutboundComm().WriteFrame(ackMsg); err != nil {
 			slog.Warn("Failed to send JOIN_ACK", "mac", macStr, "error", err)
@@ -734,7 +759,9 @@ func (ms *MeshServer) RejectEnrollment(macStr string) error {
 	// Send rejection frame: JOIN_ACK with empty PublicKey = rejection signal to firmware.
 	if ms.serialComm != nil {
 		rejectMsg := &MeshMessage{
+			ProtoVersion:     3,
 			MessageType:      MessageTypeJoinAck,
+			OriginMacAddress: ms.masterMAC[:],
 			TargetMacAddress: mac[:],
 			// PublicKey intentionally absent — rejection signal
 		}
