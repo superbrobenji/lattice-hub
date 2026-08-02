@@ -58,12 +58,12 @@ func decodeWrittenFrame(t *testing.T, mock *MockSerialPort) *MeshMessage {
 	return &msg
 }
 
-func TestApproveEnrollment_SendsJoinAckWithPubKey(t *testing.T) {
+func TestApproveEnrollment_SendsJoinAckWithCorrectFields(t *testing.T) {
 	ms := newTestMeshServer(t)
 	mockPort := NewMockSerialPort()
 	ms.serialComm = NewSerialComm(mockPort)
 
-	macStr, wantPubKey := enrollTestNode(t, ms)
+	macStr, nodePubKey := enrollTestNode(t, ms)
 
 	if err := ms.ApproveEnrollment(macStr, ApprovalParams{}); err != nil {
 		t.Fatalf("ApproveEnrollment returned error: %v", err)
@@ -75,23 +75,36 @@ func TestApproveEnrollment_SendsJoinAckWithPubKey(t *testing.T) {
 	if joinAck.MessageType != 4 {
 		t.Errorf("MessageType = %d, want 4", joinAck.MessageType)
 	}
-	if len(joinAck.PublicKey) != 32 {
-		t.Errorf("PublicKey length = %d, want 32", len(joinAck.PublicKey))
-	}
-	for i, b := range joinAck.PublicKey {
-		if b != wantPubKey[i] {
-			t.Errorf("PublicKey[%d] = %d, want %d", i, b, wantPubKey[i])
-			break
-		}
+	if joinAck.ProtoVersion != 3 {
+		t.Errorf("ProtoVersion = %d, want 3", joinAck.ProtoVersion)
 	}
 
-	// TargetMacAddress must carry the enrolling node's MAC — not OriginMacAddress
-	wantMAC := []byte{0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF} // from enrollTestNode helper
-	if !bytes.Equal(joinAck.TargetMacAddress, wantMAC) {
-		t.Errorf("TargetMacAddress = %x, want %x", joinAck.TargetMacAddress, wantMAC)
+	// OriginMacAddress must be the master's MAC
+	wantMasterMAC := []byte{0xDE, 0xAD, 0xBE, 0xEF, 0x00, 0x01}
+	if !bytes.Equal(joinAck.OriginMacAddress, wantMasterMAC) {
+		t.Errorf("OriginMacAddress = %x, want %x (master MAC)", joinAck.OriginMacAddress, wantMasterMAC)
 	}
-	if len(joinAck.OriginMacAddress) != 0 {
-		t.Errorf("OriginMacAddress should be absent, got %x", joinAck.OriginMacAddress)
+
+	// TargetMacAddress must carry the enrolling node's MAC
+	wantNodeMAC := []byte{0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF}
+	if !bytes.Equal(joinAck.TargetMacAddress, wantNodeMAC) {
+		t.Errorf("TargetMacAddress = %x, want %x (node MAC)", joinAck.TargetMacAddress, wantNodeMAC)
+	}
+
+	// PublicKey must be the master's public key (not the node's)
+	if len(joinAck.PublicKey) != 32 {
+		t.Fatalf("PublicKey length = %d, want 32", len(joinAck.PublicKey))
+	}
+	if !bytes.Equal(joinAck.PublicKey, ms.masterPublicKey[:]) {
+		t.Errorf("PublicKey = %x, want master's public key %x", joinAck.PublicKey[:4], ms.masterPublicKey[:4])
+	}
+
+	// Data must contain node's public key fingerprint (first 4 bytes)
+	if len(joinAck.Data) < 4 {
+		t.Fatalf("Data length = %d, want at least 4", len(joinAck.Data))
+	}
+	if !bytes.Equal(joinAck.Data[0:4], nodePubKey[:4]) {
+		t.Errorf("Data[0:4] = %x, want %x (node pubkey fingerprint)", joinAck.Data[0:4], nodePubKey[:4])
 	}
 
 	// Second frame: OP_NODE_ID_SET
@@ -130,13 +143,21 @@ func TestRejectEnrollment_SendsJoinAckToTargetMac(t *testing.T) {
 	}
 
 	msg := decodeWrittenFrame(t, mockPort)
-	wantMAC := []byte{0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF}
-	if !bytes.Equal(msg.TargetMacAddress, wantMAC) {
-		t.Errorf("TargetMacAddress = %x, want %x", msg.TargetMacAddress, wantMAC)
+
+	if msg.ProtoVersion != 3 {
+		t.Errorf("ProtoVersion = %d, want 3", msg.ProtoVersion)
 	}
-	if len(msg.OriginMacAddress) != 0 {
-		t.Errorf("OriginMacAddress should be absent in rejection frame, got %x", msg.OriginMacAddress)
+
+	wantMasterMAC := []byte{0xDE, 0xAD, 0xBE, 0xEF, 0x00, 0x01}
+	if !bytes.Equal(msg.OriginMacAddress, wantMasterMAC) {
+		t.Errorf("OriginMacAddress = %x, want %x (master MAC)", msg.OriginMacAddress, wantMasterMAC)
 	}
+
+	wantNodeMAC := []byte{0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF}
+	if !bytes.Equal(msg.TargetMacAddress, wantNodeMAC) {
+		t.Errorf("TargetMacAddress = %x, want %x", msg.TargetMacAddress, wantNodeMAC)
+	}
+
 	if len(msg.PublicKey) != 0 {
 		t.Errorf("PublicKey should be absent (rejection signal), got %x", msg.PublicKey)
 	}
