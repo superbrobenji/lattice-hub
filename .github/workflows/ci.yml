@@ -8,6 +8,37 @@ on:
     branches: [main]
 
 jobs:
+  proto-sync:
+    name: Proto sync (mesh.pb.go)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: server/orchestrator
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: server/orchestrator/go.mod
+      - uses: arduino/setup-protoc@c65c819552d16ad3c9b72d9dfd5ba5237b9c906b # v3.0.0
+        with:
+          version: "25.1"
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Install protoc-gen-go
+        run: go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.36.11
+      - name: Regenerate mesh.pb.go
+        run: go generate ./mesh/...
+      - name: Fail if regenerated output drifted from committed
+        run: |
+          # Ignore only the tooling-version and source-path comment lines —
+          # everything else (fields, imports, generated method bodies) must
+          # match exactly.
+          git diff --exit-code \
+            -I '^// *protoc(-gen-go)? *v' \
+            -I '^// *source:' \
+            mesh/mesh.pb.go
+
   go-test:
     name: Go test
     runs-on: ubuntu-latest
