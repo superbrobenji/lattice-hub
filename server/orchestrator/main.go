@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
 	"log/slog"
 	"os"
 	"os/signal"
@@ -86,6 +87,12 @@ func main() {
 		slog.Warn("Failed to connect to Kafka after all attempts — continuing without Kafka integration", "maxRetries", maxRetries)
 	}
 
+	// Master identity — Curve25519 keypair persisted at MasterKeyPath; MAC is the
+	// physical WiFi MAC of the master ESP32. Both are required in JOIN_ACK so
+	// enrolling nodes can trust and address the master. Missing either → JOIN_ACK
+	// carries zero bytes and firmware rejects enrollment.
+	masterKeyPath, masterMAC := loadMasterIdentity()
+
 	// Setup mesh server
 	meshConfig := mesh.MeshServerConfig{
 		SerialPort: *serialPort,
@@ -101,7 +108,11 @@ func main() {
 		AuthRegistryPath: *authRegistry,
 		NodeRegistryPath: *nodeRegistry,
 		ZoneRegistryPath: zoneRegistryPath,
+		MasterKeyPath:    masterKeyPath,
+		MasterMAC:        masterMAC,
 	}
+	slog.Info("Master identity", "keyPath", masterKeyPath, "mac", fmt.Sprintf("%02x:%02x:%02x:%02x:%02x:%02x",
+		masterMAC[0], masterMAC[1], masterMAC[2], masterMAC[3], masterMAC[4], masterMAC[5]))
 
 	meshServer := mesh.NewMeshServer(meshConfig)
 
