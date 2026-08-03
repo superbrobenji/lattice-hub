@@ -33,10 +33,11 @@ jobs:
         run: |
           # Ignore only the tooling-version and source-path comment lines —
           # everything else (fields, imports, generated method bodies) must
-          # match exactly.
+          # match exactly. protoc-gen-go emits tabs between `//` and the
+          # keyword, so use POSIX [[:space:]] rather than literal spaces.
           git diff --exit-code \
-            -I '^// *protoc(-gen-go)? *v' \
-            -I '^// *source:' \
+            -I '^//[[:space:]]*protoc(-gen-go)?[[:space:]]+v' \
+            -I '^//[[:space:]]*source:' \
             mesh/mesh.pb.go
 
   go-test:
