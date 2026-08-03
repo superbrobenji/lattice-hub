@@ -304,6 +304,104 @@ func TestApproveEnrollment_HotswapSendsConfigSet(t *testing.T) {
 	}
 }
 
+func TestApproveEnrollment_NodeIdSet_HasProtoVersion3(t *testing.T) {
+	ms := newTestMeshServer(t)
+	mockPort := NewMockSerialPort()
+	ms.serialComm = NewSerialComm(mockPort)
+
+	macStr, _ := enrollTestNode(t, ms)
+
+	if err := ms.ApproveEnrollment(macStr, ApprovalParams{NodeID: 5}); err != nil {
+		t.Fatalf("ApproveEnrollment returned error: %v", err)
+	}
+
+	_ = decodeWrittenFrame(t, mockPort) // JOIN_ACK
+	nodeIdMsg := decodeWrittenFrame(t, mockPort) // OP_NODE_ID_SET
+
+	if nodeIdMsg.ProtoVersion != 3 {
+		t.Errorf("OP_NODE_ID_SET ProtoVersion = %d, want 3", nodeIdMsg.ProtoVersion)
+	}
+}
+
+func TestApproveEnrollment_NodeIdSet_HasMasterOriginMAC(t *testing.T) {
+	ms := newTestMeshServer(t)
+	mockPort := NewMockSerialPort()
+	ms.serialComm = NewSerialComm(mockPort)
+
+	macStr, _ := enrollTestNode(t, ms)
+
+	if err := ms.ApproveEnrollment(macStr, ApprovalParams{NodeID: 5}); err != nil {
+		t.Fatalf("ApproveEnrollment returned error: %v", err)
+	}
+
+	_ = decodeWrittenFrame(t, mockPort) // JOIN_ACK
+	nodeIdMsg := decodeWrittenFrame(t, mockPort) // OP_NODE_ID_SET
+
+	wantMasterMAC := []byte{0xDE, 0xAD, 0xBE, 0xEF, 0x00, 0x01}
+	if !bytes.Equal(nodeIdMsg.OriginMacAddress, wantMasterMAC) {
+		t.Errorf("OP_NODE_ID_SET OriginMacAddress = %x, want %x (master MAC)",
+			nodeIdMsg.OriginMacAddress, wantMasterMAC)
+	}
+}
+
+func TestApproveEnrollment_FullSequence_AllFramesCorrect(t *testing.T) {
+	ms := newTestMeshServer(t)
+	mockPort := NewMockSerialPort()
+	ms.serialComm = NewSerialComm(mockPort)
+
+	macStr, nodePubKey := enrollTestNode(t, ms)
+	wantNodeMAC := []byte{0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF}
+	wantMasterMAC := []byte{0xDE, 0xAD, 0xBE, 0xEF, 0x00, 0x01}
+
+	params := ApprovalParams{
+		NodeID: 42,
+		Name:   "test-node",
+		Zone:   "test-zone",
+	}
+	if err := ms.ApproveEnrollment(macStr, params); err != nil {
+		t.Fatalf("ApproveEnrollment returned error: %v", err)
+	}
+
+	// Frame 1: JOIN_ACK
+	joinAck := decodeWrittenFrame(t, mockPort)
+	if joinAck.ProtoVersion != 3 {
+		t.Errorf("JOIN_ACK ProtoVersion = %d, want 3", joinAck.ProtoVersion)
+	}
+	if joinAck.MessageType != 4 {
+		t.Errorf("JOIN_ACK MessageType = %d, want 4", joinAck.MessageType)
+	}
+	if !bytes.Equal(joinAck.OriginMacAddress, wantMasterMAC) {
+		t.Errorf("JOIN_ACK OriginMacAddress = %x, want %x", joinAck.OriginMacAddress, wantMasterMAC)
+	}
+	if !bytes.Equal(joinAck.TargetMacAddress, wantNodeMAC) {
+		t.Errorf("JOIN_ACK TargetMacAddress = %x, want %x", joinAck.TargetMacAddress, wantNodeMAC)
+	}
+	if !bytes.Equal(joinAck.PublicKey, ms.masterPublicKey[:]) {
+		t.Errorf("JOIN_ACK PublicKey mismatch (master's key expected)")
+	}
+	if !bytes.Equal(joinAck.Data[0:4], nodePubKey[:4]) {
+		t.Errorf("JOIN_ACK Data fingerprint = %x, want %x", joinAck.Data[0:4], nodePubKey[:4])
+	}
+
+	// Frame 2: OP_NODE_ID_SET
+	nodeIdMsg := decodeWrittenFrame(t, mockPort)
+	if nodeIdMsg.ProtoVersion != 3 {
+		t.Errorf("OP_NODE_ID_SET ProtoVersion = %d, want 3", nodeIdMsg.ProtoVersion)
+	}
+	if !bytes.Equal(nodeIdMsg.OriginMacAddress, wantMasterMAC) {
+		t.Errorf("OP_NODE_ID_SET OriginMacAddress = %x, want %x", nodeIdMsg.OriginMacAddress, wantMasterMAC)
+	}
+	if nodeIdMsg.Data[0] != byte(OpNodeIdSet) {
+		t.Errorf("OP_NODE_ID_SET opcode = 0x%02x, want 0x%02x", nodeIdMsg.Data[0], OpNodeIdSet)
+	}
+	if !bytes.Equal(nodeIdMsg.Data[1:7], wantNodeMAC) {
+		t.Errorf("OP_NODE_ID_SET target MAC = %x, want %x", nodeIdMsg.Data[1:7], wantNodeMAC)
+	}
+	if nodeIdMsg.Data[7] != 42 {
+		t.Errorf("OP_NODE_ID_SET nodeId = %d, want 42", nodeIdMsg.Data[7])
+	}
+}
+
 func TestApproveEnrollment_HotswapExplicitOverrideNotInherited(t *testing.T) {
 	ms := newTestMeshServer(t)
 

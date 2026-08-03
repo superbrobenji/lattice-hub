@@ -716,9 +716,11 @@ func (ms *MeshServer) ApproveEnrollment(macStr string, params ApprovalParams) er
 			copy(payload[1:7], node.MAC[:])   // target MAC
 			payload[7] = nodeId
 			idMsg := &MeshMessage{
-				MessageType: MessageTypeSerialCmdBroadcast,
-				DataType:    AdapterTypeSerial,
-				Data:        payload,
+				ProtoVersion:     3,
+				MessageType:      MessageTypeSerialCmdBroadcast,
+				OriginMacAddress: ms.masterMAC[:],
+				DataType:         AdapterTypeSerial,
+				Data:             payload,
 			}
 			if err := ms.activeOutboundComm().WriteFrame(idMsg); err != nil {
 				slog.Warn("Failed to send OP_NODE_ID_SET", "mac", macStr, "nodeId", nodeId, "error", err)
@@ -730,8 +732,11 @@ func (ms *MeshServer) ApproveEnrollment(macStr string, params ApprovalParams) er
 			configMsg, buildErr := ms.messageBuilder.BuildConfigSetMessage(node.MAC[:], inheritedAdapterType)
 			if buildErr != nil {
 				slog.Warn("Failed to build OP_CONFIG_SET for hotswap", "mac", macStr, "error", buildErr)
-			} else if err := ms.serialComm.WriteFrame(configMsg); err != nil {
-				slog.Warn("Failed to send OP_CONFIG_SET on hotswap", "mac", macStr, "error", err)
+			} else {
+				configMsg.OriginMacAddress = ms.masterMAC[:]
+				if err := ms.serialComm.WriteFrame(configMsg); err != nil {
+					slog.Warn("Failed to send OP_CONFIG_SET on hotswap", "mac", macStr, "error", err)
+				}
 			}
 		}
 	}
@@ -818,6 +823,7 @@ func (ms *MeshServer) ConfigureNode(targetMAC []byte, adapterType int32) error {
 	if err != nil {
 		return fmt.Errorf("failed to build config message: %w", err)
 	}
+	msg.OriginMacAddress = ms.masterMAC[:]
 
 	slog.Info("Configuring node", "mac", macToString(targetMAC), "adapterType", GetAdapterTypeName(adapterType))
 
@@ -1031,9 +1037,10 @@ func (ms *MeshServer) SetTxPowerPreset(preset uint8) error {
 	payload[0] = OpTxPowerSet
 	payload[1] = preset
 	msg := &MeshMessage{
-		MessageType: MessageTypeAdapterData,
-		DataType:    AdapterTypeSerial,
-		Data:        payload,
+		ProtoVersion: 3,
+		MessageType:  MessageTypeAdapterData,
+		DataType:     AdapterTypeSerial,
+		Data:         payload,
 	}
 	if err := ms.activeOutboundComm().WriteFrame(msg); err != nil {
 		return fmt.Errorf("failed to send TX power preset: %w", err)
