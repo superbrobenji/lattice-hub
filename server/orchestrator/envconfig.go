@@ -49,6 +49,21 @@ func loadMasterIdentity() (keyPath string, mac [6]byte) {
 	return
 }
 
+// loadSecondaryMasterIdentity reads SECONDARY_MASTER_KEY_PATH +
+// SECONDARY_MASTER_MAC. Only called when DUAL_MASTER_ENABLED=true. Returns
+// empty path / zero MAC when unset — MeshServer will then skip stamping
+// secondary fields on JOIN_ACK.
+func loadSecondaryMasterIdentity() (keyPath string, mac [6]byte) {
+	keyPath = envOrDefault("SECONDARY_MASTER_KEY_PATH", "data/masterkey-secondary.json")
+	if os.Getenv("SECONDARY_MASTER_MAC") == "" {
+		slog.Warn("Dual-master enabled but SECONDARY_MASTER_MAC not configured — secondary JOIN_ACK fields will be omitted",
+			"action", "set SECONDARY_MASTER_MAC=aa:bb:cc:dd:ee:ff to the secondary master ESP32's WiFi MAC")
+		return "", [6]byte{}
+	}
+	mac = envMAC("SECONDARY_MASTER_MAC")
+	return
+}
+
 func envMAC(key string) [6]byte {
 	v := os.Getenv(key)
 	if v == "" {
