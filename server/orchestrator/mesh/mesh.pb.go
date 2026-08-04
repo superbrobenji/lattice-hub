@@ -39,6 +39,7 @@ type MeshMessage struct {
 	AuthTag            []byte                 `protobuf:"bytes,14,opt,name=authTag,proto3,oneof" json:"authTag,omitempty"`                       // v3: ChaCha20-Poly1305 tag over data[64] (firmware-only)
 	SecondaryMasterMac []byte                 `protobuf:"bytes,15,opt,name=secondaryMasterMac,proto3,oneof" json:"secondaryMasterMac,omitempty"` // v3: dual-master: secondary master MAC in JOIN_ACK (Phase 4)
 	SecondaryPublicKey []byte                 `protobuf:"bytes,16,opt,name=secondaryPublicKey,proto3,oneof" json:"secondaryPublicKey,omitempty"` // v3: dual-master: secondary master Curve25519 pubkey (Phase 4)
+	AuthPath           []byte                 `protobuf:"bytes,17,opt,name=authPath,proto3,oneof" json:"authPath,omitempty"`                     // v4: chained HMAC-SHA256-64 over route_path (8 bytes), firmware-authored, master-verified; opaque to hub
 	unknownFields      protoimpl.UnknownFields
 	sizeCache          protoimpl.SizeCache
 }
@@ -185,12 +186,19 @@ func (x *MeshMessage) GetSecondaryPublicKey() []byte {
 	return nil
 }
 
+func (x *MeshMessage) GetAuthPath() []byte {
+	if x != nil {
+		return x.AuthPath
+	}
+	return nil
+}
+
 var File_mesh_proto protoreflect.FileDescriptor
 
 const file_mesh_proto_rawDesc = "" +
 	"\n" +
 	"\n" +
-	"mesh.proto\x12\x04mesh\"\x9a\x05\n" +
+	"mesh.proto\x12\x04mesh\"\xc8\x05\n" +
 	"\vMeshMessage\x12 \n" +
 	"\vmessageType\x18\x01 \x01(\rR\vmessageType\x12\x1a\n" +
 	"\bdataType\x18\x02 \x01(\x11R\bdataType\x12*\n" +
@@ -209,14 +217,16 @@ const file_mesh_proto_rawDesc = "" +
 	"\troutePath\x18\r \x01(\fH\x01R\troutePath\x88\x01\x01\x12\x1d\n" +
 	"\aauthTag\x18\x0e \x01(\fH\x02R\aauthTag\x88\x01\x01\x123\n" +
 	"\x12secondaryMasterMac\x18\x0f \x01(\fH\x03R\x12secondaryMasterMac\x88\x01\x01\x123\n" +
-	"\x12secondaryPublicKey\x18\x10 \x01(\fH\x04R\x12secondaryPublicKey\x88\x01\x01B\v\n" +
+	"\x12secondaryPublicKey\x18\x10 \x01(\fH\x04R\x12secondaryPublicKey\x88\x01\x01\x12\x1f\n" +
+	"\bauthPath\x18\x11 \x01(\fH\x05R\bauthPath\x88\x01\x01B\v\n" +
 	"\t_routeLenB\f\n" +
 	"\n" +
 	"_routePathB\n" +
 	"\n" +
 	"\b_authTagB\x15\n" +
 	"\x13_secondaryMasterMacB\x15\n" +
-	"\x13_secondaryPublicKeyB,Z*github.com/superbrobenji/motionServer/meshb\x06proto3"
+	"\x13_secondaryPublicKeyB\v\n" +
+	"\t_authPathB,Z*github.com/superbrobenji/motionServer/meshb\x06proto3"
 
 var (
 	file_mesh_proto_rawDescOnce sync.Once

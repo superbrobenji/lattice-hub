@@ -403,9 +403,9 @@ func (ms *MeshServer) messageProcessor(comm *SerialComm, label string) {
 
 // handleMessage processes a received mesh message
 func (ms *MeshServer) handleMessage(msg *MeshMessage) error {
-	// Proto version check — 0 is legacy (pre-security), 3 is current (protocol v3).
-	// Flag-day: v2 nodes must be reflashed. Drop 1, 2, and any future unknown version.
-	if msg.ProtoVersion != 3 {
+	// Proto version check — 0 is legacy (pre-security), 4 is current (protocol v4).
+	// Flag-day: v3 nodes must be reflashed. Drop 1, 2, 3, and any future unknown version.
+	if msg.ProtoVersion != 4 {
 		slog.Warn("Unsupported proto version — dropping", "version", msg.ProtoVersion, "origin", fmt.Sprintf("%x", msg.OriginMacAddress))
 		return nil
 	}
@@ -718,11 +718,11 @@ func (ms *MeshServer) ApproveEnrollment(macStr string, params ApprovalParams) er
 	}
 
 	if ms.serialComm != nil {
-		// Send JOIN_ACK with protocol v3 fields
+		// Send JOIN_ACK with protocol v4 fields
 		fingerprint := make([]byte, MaxDataLength)
 		copy(fingerprint[0:4], node.PublicKey[:4])
 		ackMsg := &MeshMessage{
-			ProtoVersion:     3,
+			ProtoVersion:     4,
 			MessageType:      MessageTypeJoinAck,
 			OriginMacAddress: ms.masterMAC[:],
 			TargetMacAddress: node.MAC[:],
@@ -751,7 +751,7 @@ func (ms *MeshServer) ApproveEnrollment(macStr string, params ApprovalParams) er
 			copy(payload[1:7], node.MAC[:])   // target MAC
 			payload[7] = nodeId
 			idMsg := &MeshMessage{
-				ProtoVersion:     3,
+				ProtoVersion:     4,
 				MessageType:      MessageTypeSerialCmdBroadcast,
 				OriginMacAddress: ms.masterMAC[:],
 				DataType:         AdapterTypeSerial,
@@ -799,7 +799,7 @@ func (ms *MeshServer) RejectEnrollment(macStr string) error {
 	// Send rejection frame: JOIN_ACK with empty PublicKey = rejection signal to firmware.
 	if ms.serialComm != nil {
 		rejectMsg := &MeshMessage{
-			ProtoVersion:     3,
+			ProtoVersion:     4,
 			MessageType:      MessageTypeJoinAck,
 			OriginMacAddress: ms.masterMAC[:],
 			TargetMacAddress: mac[:],
@@ -934,7 +934,7 @@ func (ms *MeshServer) SendNodeData(dataType int32, data []byte) error {
 	payload := make([]byte, MaxDataLength)
 	copy(payload, data)
 	msg := &MeshMessage{
-		ProtoVersion: 3,
+		ProtoVersion: 4,
 		MessageType:  MessageTypeSerialCmdBroadcast,
 		DataType:     dataType,
 		Data:         payload,
@@ -1072,7 +1072,7 @@ func (ms *MeshServer) SetTxPowerPreset(preset uint8) error {
 	payload[0] = OpTxPowerSet
 	payload[1] = preset
 	msg := &MeshMessage{
-		ProtoVersion: 3,
+		ProtoVersion: 4,
 		MessageType:  MessageTypeAdapterData,
 		DataType:     AdapterTypeSerial,
 		Data:         payload,

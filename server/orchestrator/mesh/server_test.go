@@ -67,7 +67,7 @@ func TestHandleNodeHealth_RegistersNode(t *testing.T) {
 	data[11] = 0
 
 	msg := &MeshMessage{
-		ProtoVersion:     3,
+		ProtoVersion:     4,
 		MessageType:      MessageTypeAdapterData,
 		DataType:         AdapterTypeSerial,
 		Data:             data,
@@ -106,7 +106,7 @@ func TestMeshServer_PublishesMotionEvent_OnPIRData(t *testing.T) {
 	data[0] = byte(AdapterTypePIR)
 	copy(data[1:7], mac)
 	msg := &MeshMessage{
-		ProtoVersion:     3,
+		ProtoVersion:     4,
 		MessageType:      MessageTypeAdapterData,
 		DataType:         AdapterTypePIR,
 		Data:             data,
@@ -137,7 +137,7 @@ func TestMeshServer_PublishesNodeOnline_OnFirstHealthReport(t *testing.T) {
 	data[1] = byte(AdapterTypePIR)
 	copy(data[2:8], mac)
 	msg := &MeshMessage{
-		ProtoVersion:     3,
+		ProtoVersion:     4,
 		MessageType:      MessageTypeAdapterData,
 		DataType:         AdapterTypeSerial,
 		Data:             data,
@@ -233,18 +233,29 @@ func TestHandleMessage_ProtoVersionGuard(t *testing.T) {
 		t.Fatalf("handleMessage(v2) returned unexpected error: %v", err)
 	}
 	if _, ok := ms.GetNodeRegistry().GetNode(mac); ok {
-		t.Error("v2 message must be dropped — flag-day migration to v3")
+		t.Error("v2 message must be dropped — flag-day migration to v4")
 	}
 
-	// v3: must be accepted and processed.
+	// v3: flag-day drop; no v3 backward compatibility.
 	if err := ms.handleMessage(&MeshMessage{
 		ProtoVersion: 3, MessageType: MessageTypeAdapterData,
 		DataType: AdapterTypeSerial, Data: healthData, OriginMacAddress: mac,
 	}); err != nil {
 		t.Fatalf("handleMessage(v3) returned unexpected error: %v", err)
 	}
+	if _, ok := ms.GetNodeRegistry().GetNode(mac); ok {
+		t.Error("v3 message must be dropped — flag-day migration to v4")
+	}
+
+	// v4: must be accepted and processed.
+	if err := ms.handleMessage(&MeshMessage{
+		ProtoVersion: 4, MessageType: MessageTypeAdapterData,
+		DataType: AdapterTypeSerial, Data: healthData, OriginMacAddress: mac,
+	}); err != nil {
+		t.Fatalf("handleMessage(v4) returned unexpected error: %v", err)
+	}
 	if _, ok := ms.GetNodeRegistry().GetNode(mac); !ok {
-		t.Error("v3 message must be processed — node should be registered after health report")
+		t.Error("v4 message must be processed — node should be registered after health report")
 	}
 }
 
