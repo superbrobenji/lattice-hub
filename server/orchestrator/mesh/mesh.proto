@@ -20,4 +20,5 @@ message MeshMessage {
   optional bytes  authTag           = 14; // v3: ChaCha20-Poly1305 tag over data[64] (firmware-only)
   optional bytes  secondaryMasterMac = 15; // v3: dual-master: secondary master MAC in JOIN_ACK (Phase 4)
   optional bytes  secondaryPublicKey  = 16; // v3: dual-master: secondary master Curve25519 pubkey (Phase 4)
+  optional bytes  authPath           = 17; // v4: chained HMAC-SHA256-64 over route_path (8 bytes), firmware-authored, master-verified; opaque to hub
 }

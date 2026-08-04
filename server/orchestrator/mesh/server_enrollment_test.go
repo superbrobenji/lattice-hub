@@ -75,8 +75,8 @@ func TestApproveEnrollment_SendsJoinAckWithCorrectFields(t *testing.T) {
 	if joinAck.MessageType != 4 {
 		t.Errorf("MessageType = %d, want 4", joinAck.MessageType)
 	}
-	if joinAck.ProtoVersion != 3 {
-		t.Errorf("ProtoVersion = %d, want 3", joinAck.ProtoVersion)
+	if joinAck.ProtoVersion != 4 {
+		t.Errorf("ProtoVersion = %d, want 4", joinAck.ProtoVersion)
 	}
 
 	// OriginMacAddress must be the master's MAC
@@ -144,8 +144,8 @@ func TestRejectEnrollment_SendsJoinAckToTargetMac(t *testing.T) {
 
 	msg := decodeWrittenFrame(t, mockPort)
 
-	if msg.ProtoVersion != 3 {
-		t.Errorf("ProtoVersion = %d, want 3", msg.ProtoVersion)
+	if msg.ProtoVersion != 4 {
+		t.Errorf("ProtoVersion = %d, want 4", msg.ProtoVersion)
 	}
 
 	wantMasterMAC := []byte{0xDE, 0xAD, 0xBE, 0xEF, 0x00, 0x01}
@@ -304,7 +304,7 @@ func TestApproveEnrollment_HotswapSendsConfigSet(t *testing.T) {
 	}
 }
 
-func TestApproveEnrollment_NodeIdSet_HasProtoVersion3(t *testing.T) {
+func TestApproveEnrollment_NodeIdSet_HasProtoVersion4(t *testing.T) {
 	ms := newTestMeshServer(t)
 	mockPort := NewMockSerialPort()
 	ms.serialComm = NewSerialComm(mockPort)
@@ -318,8 +318,8 @@ func TestApproveEnrollment_NodeIdSet_HasProtoVersion3(t *testing.T) {
 	_ = decodeWrittenFrame(t, mockPort) // JOIN_ACK
 	nodeIdMsg := decodeWrittenFrame(t, mockPort) // OP_NODE_ID_SET
 
-	if nodeIdMsg.ProtoVersion != 3 {
-		t.Errorf("OP_NODE_ID_SET ProtoVersion = %d, want 3", nodeIdMsg.ProtoVersion)
+	if nodeIdMsg.ProtoVersion != 4 {
+		t.Errorf("OP_NODE_ID_SET ProtoVersion = %d, want 4", nodeIdMsg.ProtoVersion)
 	}
 }
 
@@ -364,8 +364,8 @@ func TestApproveEnrollment_FullSequence_AllFramesCorrect(t *testing.T) {
 
 	// Frame 1: JOIN_ACK
 	joinAck := decodeWrittenFrame(t, mockPort)
-	if joinAck.ProtoVersion != 3 {
-		t.Errorf("JOIN_ACK ProtoVersion = %d, want 3", joinAck.ProtoVersion)
+	if joinAck.ProtoVersion != 4 {
+		t.Errorf("JOIN_ACK ProtoVersion = %d, want 4", joinAck.ProtoVersion)
 	}
 	if joinAck.MessageType != 4 {
 		t.Errorf("JOIN_ACK MessageType = %d, want 4", joinAck.MessageType)
@@ -385,8 +385,8 @@ func TestApproveEnrollment_FullSequence_AllFramesCorrect(t *testing.T) {
 
 	// Frame 2: OP_NODE_ID_SET
 	nodeIdMsg := decodeWrittenFrame(t, mockPort)
-	if nodeIdMsg.ProtoVersion != 3 {
-		t.Errorf("OP_NODE_ID_SET ProtoVersion = %d, want 3", nodeIdMsg.ProtoVersion)
+	if nodeIdMsg.ProtoVersion != 4 {
+		t.Errorf("OP_NODE_ID_SET ProtoVersion = %d, want 4", nodeIdMsg.ProtoVersion)
 	}
 	if !bytes.Equal(nodeIdMsg.OriginMacAddress, wantMasterMAC) {
 		t.Errorf("OP_NODE_ID_SET OriginMacAddress = %x, want %x", nodeIdMsg.OriginMacAddress, wantMasterMAC)

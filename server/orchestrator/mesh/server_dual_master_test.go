@@ -48,8 +48,8 @@ func TestApproveEnrollment_DualMaster_JoinAckCarriesSecondaryFields(t *testing.T
 	if joinAck.MessageType != 4 {
 		t.Errorf("MessageType = %d, want 4 (JOIN_ACK)", joinAck.MessageType)
 	}
-	if joinAck.ProtoVersion != 3 {
-		t.Errorf("ProtoVersion = %d, want 3", joinAck.ProtoVersion)
+	if joinAck.ProtoVersion != 4 {
+		t.Errorf("ProtoVersion = %d, want 4", joinAck.ProtoVersion)
 	}
 
 	// SecondaryMasterMac must carry the configured secondary MAC (all 6 bytes).
