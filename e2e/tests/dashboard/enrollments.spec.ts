@@ -22,6 +22,13 @@ test('spawned node appears pending and can be approved', async ({ dashPage, sim,
   await expect(row).toBeVisible();
   await row.getByRole('button', { name: 'Approve' }).click();
 
+  // Approve opens a modal dialog collecting a required name; fill it in and
+  // confirm (see _auth.enrollments.tsx — modal-per-row, no slide-panel
+  // primitive in the dashboard).
+  await expect(dashPage.getByText(`Approve ${NEW_MAC}`)).toBeVisible();
+  await dashPage.getByLabel(/^name$/i).fill('test-node-42');
+  await dashPage.getByRole('button', { name: 'Confirm' }).click();
+
   // Plain form POST -> page reload; the row is gone once the enrollment is
   // no longer pending.
   await expect(dashPage.locator('tr', { hasText: NEW_MAC })).toHaveCount(0);
@@ -30,20 +37,11 @@ test('spawned node appears pending and can be approved', async ({ dashPage, sim,
   await expect.poll(async () => (await sim.node(NEW_MAC))?.enrolled).toBe(true);
 
   // The orchestrator's public API never surfaces MAC on registered nodes
-  // (OrchNode has no `mac` field), and the dashboard's plain Approve button
-  // posts no `name` (see _auth.enrollments.tsx), so the newly-registered node
-  // lands in the registry with an empty name. Identify it by the node-count
-  // increase, then confirm the empty-named entry is the one that comes
-  // online (heartbeats into the registry).
+  // (OrchNode has no `mac` field); identify the approved node by the name
+  // submitted through the dialog and confirm it comes online.
   await expect.poll(async () => (await orch.nodes()).length, { timeout: 30_000 }).toBe(before + 1);
   await expect
-    .poll(
-      async () => {
-        const nodes = await orch.nodes();
-        return nodes.find((n) => n.name === '')?.online;
-      },
-      { timeout: 30_000 },
-    )
+    .poll(async () => (await orch.nodeByName('test-node-42'))?.online, { timeout: 30_000 })
     .toBe(true);
 });
 
