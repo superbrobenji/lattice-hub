@@ -26,7 +26,7 @@ func (mb *MessageBuilder) BuildConfigSetMessage(targetMAC []byte, adapterType in
 	// Bytes 8-11 are reserved (already zero from make)
 
 	return &MeshMessage{
-		ProtoVersion:     4,
+		ProtoVersion:     5,
 		MessageType:      MessageTypeAdapterData,
 		DataType:         AdapterTypeSerial,
 		TargetMacAddress: targetMAC,
@@ -46,7 +46,7 @@ func (mb *MessageBuilder) BuildHealthRequestMessage() *MeshMessage {
 	// Remaining bytes are zero
 
 	return &MeshMessage{
-		ProtoVersion: 4,
+		ProtoVersion: 5,
 		MessageType:  MessageTypeAdapterData,
 		DataType:     AdapterTypeSerial,
 		Data:         payload,
@@ -63,7 +63,7 @@ func (mb *MessageBuilder) BuildBroadcastMessage(dataType int32, data []byte) (*M
 	copy(payload, data)
 
 	return &MeshMessage{
-		ProtoVersion: 4,
+		ProtoVersion: 5,
 		MessageType:  MessageTypeSerialCmdBroadcast,
 		DataType:     dataType,
 		Data:         payload,
@@ -84,7 +84,7 @@ func (mb *MessageBuilder) BuildAdapterDataMessage(targetMAC []byte, dataType int
 	copy(payload, data)
 
 	return &MeshMessage{
-		ProtoVersion:     4,
+		ProtoVersion:     5,
 		MessageType:      MessageTypeAdapterData,
 		DataType:         dataType,
 		TargetMacAddress: targetMAC,

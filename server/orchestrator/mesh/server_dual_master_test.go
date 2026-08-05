@@ -48,24 +48,36 @@ func TestApproveEnrollment_DualMaster_JoinAckCarriesSecondaryFields(t *testing.T
 	if joinAck.MessageType != 4 {
 		t.Errorf("MessageType = %d, want 4 (JOIN_ACK)", joinAck.MessageType)
 	}
-	if joinAck.ProtoVersion != 4 {
-		t.Errorf("ProtoVersion = %d, want 4", joinAck.ProtoVersion)
+	if joinAck.ProtoVersion != 5 {
+		t.Errorf("ProtoVersion = %d, want 5", joinAck.ProtoVersion)
 	}
 
-	// SecondaryMasterMac must carry the configured secondary MAC (all 6 bytes).
+	// v6 wire shrink (design §8): secondary identity is packed into
+	// data[4..42] instead of top-level SecondaryMasterMac/SecondaryPublicKey
+	// fields (retired in lattice-protocol v0.6.0).
+	if len(joinAck.Data) < 42 {
+		t.Fatalf("Data length = %d, want at least 42", len(joinAck.Data))
+	}
+
+	// data[4..10] must carry the configured secondary MAC (all 6 bytes).
 	wantSecMAC := []byte{0xC0, 0xFF, 0xEE, 0xBA, 0x11, 0x02}
-	if got := joinAck.GetSecondaryMasterMac(); !bytes.Equal(got, wantSecMAC) {
-		t.Errorf("SecondaryMasterMac = %x, want %x", got, wantSecMAC)
+	if got := joinAck.Data[4:10]; !bytes.Equal(got, wantSecMAC) {
+		t.Errorf("Data[4:10] (secondaryMasterMac) = %x, want %x", got, wantSecMAC)
 	}
 
-	// SecondaryPublicKey must be 32 bytes and match the loaded secondary keypair.
-	gotSecKey := joinAck.GetSecondaryPublicKey()
-	if len(gotSecKey) != 32 {
-		t.Fatalf("SecondaryPublicKey length = %d, want 32", len(gotSecKey))
-	}
+	// data[10..42] must carry the secondary master's public key (32 bytes).
+	gotSecKey := joinAck.Data[10:42]
 	if !bytes.Equal(gotSecKey, ms.secondaryMasterPublicKey[:]) {
-		t.Errorf("SecondaryPublicKey = %x, want %x (secondary master pubkey)",
+		t.Errorf("Data[10:42] (secondaryPublicKey) = %x, want %x (secondary master pubkey)",
 			gotSecKey[:4], ms.secondaryMasterPublicKey[:4])
+	}
+
+	// data[42..64] must remain zero.
+	for i, b := range joinAck.Data[42:64] {
+		if b != 0 {
+			t.Errorf("Data[%d] = %d, want 0 (reserved tail)", 42+i, b)
+			break
+		}
 	}
 
 	// Sanity: primary fields must still be correct (this is not JUST the
@@ -81,9 +93,9 @@ func TestApproveEnrollment_DualMaster_JoinAckCarriesSecondaryFields(t *testing.T
 }
 
 // TestApproveEnrollment_SingleMaster_JoinAckOmitsSecondaryFields verifies
-// the default (single-master) path leaves the two v3 secondary fields
-// absent/nil — firmware Phase 4 skips secondary registration when the
-// MAC is zero-valued, so a zero MAC on the wire is the correct signal.
+// the default (single-master) path leaves data[4..42] zeroed — firmware
+// Phase 4 skips secondary registration when the MAC is zero-valued, so
+// an all-zero data[4:10] on the wire is the correct signal.
 func TestApproveEnrollment_SingleMaster_JoinAckOmitsSecondaryFields(t *testing.T) {
 	ms := newTestMeshServer(t)
 	mockPort := NewMockSerialPort()
@@ -96,10 +108,11 @@ func TestApproveEnrollment_SingleMaster_JoinAckOmitsSecondaryFields(t *testing.T
 
 	joinAck := decodeWrittenFrame(t, mockPort)
 
-	if got := joinAck.GetSecondaryMasterMac(); len(got) != 0 {
-		t.Errorf("single-master JOIN_ACK carried SecondaryMasterMac = %x, want empty", got)
+	if len(joinAck.Data) < 42 {
+		t.Fatalf("Data length = %d, want at least 42", len(joinAck.Data))
 	}
-	if got := joinAck.GetSecondaryPublicKey(); len(got) != 0 {
-		t.Errorf("single-master JOIN_ACK carried SecondaryPublicKey = %x, want empty", got)
+	zero42 := make([]byte, 38)
+	if got := joinAck.Data[4:42]; !bytes.Equal(got, zero42) {
+		t.Errorf("single-master JOIN_ACK carried non-zero data[4:42] = %x, want all-zero", got)
 	}
 }

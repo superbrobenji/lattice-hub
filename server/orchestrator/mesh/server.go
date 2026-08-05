@@ -403,9 +403,9 @@ func (ms *MeshServer) messageProcessor(comm *SerialComm, label string) {
 
 // handleMessage processes a received mesh message
 func (ms *MeshServer) handleMessage(msg *MeshMessage) error {
-	// Proto version check — 0 is legacy (pre-security), 4 is current (protocol v4).
-	// Flag-day: v3 nodes must be reflashed. Drop 1, 2, 3, and any future unknown version.
-	if msg.ProtoVersion != 4 {
+	// Proto version check — 0 is legacy (pre-security), 5 is current (protocol v5).
+	// Flag-day: v4 nodes must be reflashed. Drop 1, 2, 3, 4, and any future unknown version.
+	if msg.ProtoVersion != 5 {
 		slog.Warn("Unsupported proto version — dropping", "version", msg.ProtoVersion, "origin", fmt.Sprintf("%x", msg.OriginMacAddress))
 		return nil
 	}
@@ -718,27 +718,31 @@ func (ms *MeshServer) ApproveEnrollment(macStr string, params ApprovalParams) er
 	}
 
 	if ms.serialComm != nil {
-		// Send JOIN_ACK with protocol v4 fields
+		// Send JOIN_ACK with protocol v5 fields.
+		//
+		// v6 wire shrink (data[64] layout, design §8):
+		//   data[0..4]   = node pubkey fingerprint (existing)
+		//   data[4..10]  = secondaryMasterMac (dual-master JOIN_ACK only, else zero)
+		//   data[10..42] = secondaryPublicKey (dual-master JOIN_ACK only, else zero)
+		//   data[42..64] = zero
+		// The top-level SecondaryMasterMac/SecondaryPublicKey proto fields
+		// (15/16) were retired in lattice-protocol v0.6.0.
 		fingerprint := make([]byte, MaxDataLength)
 		copy(fingerprint[0:4], node.PublicKey[:4])
+		// Dual-master: stamp secondary identity when configured. Firmware
+		// Phase 4+5 (Enrollment::processJoinAck) registers the secondary
+		// only when both fields are present and MAC is non-zero.
+		if ms.secondaryMasterMAC != ([6]byte{}) {
+			copy(fingerprint[4:10], ms.secondaryMasterMAC[:])
+			copy(fingerprint[10:42], ms.secondaryMasterPublicKey[:])
+		}
 		ackMsg := &MeshMessage{
-			ProtoVersion:     4,
+			ProtoVersion:     5,
 			MessageType:      MessageTypeJoinAck,
 			OriginMacAddress: ms.masterMAC[:],
 			TargetMacAddress: node.MAC[:],
 			PublicKey:        ms.masterPublicKey[:],
 			Data:             fingerprint,
-		}
-		// Dual-master: stamp secondary identity when configured. Firmware
-		// Phase 4+5 (Enrollment::processJoinAck) registers the secondary
-		// only when both fields are present and MAC is non-zero.
-		if ms.secondaryMasterMAC != ([6]byte{}) {
-			secMAC := make([]byte, 6)
-			copy(secMAC, ms.secondaryMasterMAC[:])
-			ackMsg.SecondaryMasterMac = secMAC
-			secKey := make([]byte, 32)
-			copy(secKey, ms.secondaryMasterPublicKey[:])
-			ackMsg.SecondaryPublicKey = secKey
 		}
 		if err := ms.activeOutboundComm().WriteFrame(ackMsg); err != nil {
 			slog.Warn("Failed to send JOIN_ACK", "mac", macStr, "error", err)
@@ -751,7 +755,7 @@ func (ms *MeshServer) ApproveEnrollment(macStr string, params ApprovalParams) er
 			copy(payload[1:7], node.MAC[:])   // target MAC
 			payload[7] = nodeId
 			idMsg := &MeshMessage{
-				ProtoVersion:     4,
+				ProtoVersion:     5,
 				MessageType:      MessageTypeSerialCmdBroadcast,
 				OriginMacAddress: ms.masterMAC[:],
 				DataType:         AdapterTypeSerial,
@@ -799,7 +803,7 @@ func (ms *MeshServer) RejectEnrollment(macStr string) error {
 	// Send rejection frame: JOIN_ACK with empty PublicKey = rejection signal to firmware.
 	if ms.serialComm != nil {
 		rejectMsg := &MeshMessage{
-			ProtoVersion:     4,
+			ProtoVersion:     5,
 			MessageType:      MessageTypeJoinAck,
 			OriginMacAddress: ms.masterMAC[:],
 			TargetMacAddress: mac[:],
@@ -934,7 +938,7 @@ func (ms *MeshServer) SendNodeData(dataType int32, data []byte) error {
 	payload := make([]byte, MaxDataLength)
 	copy(payload, data)
 	msg := &MeshMessage{
-		ProtoVersion: 4,
+		ProtoVersion: 5,
 		MessageType:  MessageTypeSerialCmdBroadcast,
 		DataType:     dataType,
 		Data:         payload,
@@ -1072,7 +1076,7 @@ func (ms *MeshServer) SetTxPowerPreset(preset uint8) error {
 	payload[0] = OpTxPowerSet
 	payload[1] = preset
 	msg := &MeshMessage{
-		ProtoVersion: 4,
+		ProtoVersion: 5,
 		MessageType:  MessageTypeAdapterData,
 		DataType:     AdapterTypeSerial,
 		Data:         payload,

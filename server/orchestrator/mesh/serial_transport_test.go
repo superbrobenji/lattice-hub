@@ -36,12 +36,12 @@ func TestOpenTransportTCPRoundTrip(t *testing.T) {
 	defer port.Close() //nolint:errcheck
 
 	comm := NewSerialComm(port)
-	want := &MeshMessage{MessageType: MessageTypeRouteReport, OriginMacAddress: []byte{1, 2, 3, 4, 5, 6}, ProtoVersion: 4}
+	want := &MeshMessage{MessageType: MessageTypeRouteReport, OriginMacAddress: []byte{1, 2, 3, 4, 5, 6}, ProtoVersion: 5}
 	if err := comm.WriteFrame(want); err != nil {
 		t.Fatalf("WriteFrame: %v", err)
 	}
 	got := <-echoed
-	if got.MessageType != want.MessageType || got.ProtoVersion != 4 {
+	if got.MessageType != want.MessageType || got.ProtoVersion != 5 {
 		t.Fatalf("frame mismatch: got %+v", got)
 	}
 }
