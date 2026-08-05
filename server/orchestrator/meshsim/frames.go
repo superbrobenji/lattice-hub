@@ -16,7 +16,7 @@ func macKey(mac []byte) string {
 
 func envelope(n *VirtualNode) *mesh.MeshMessage {
 	return &mesh.MeshMessage{
-		ProtoVersion:     4,
+		ProtoVersion:     5,
 		OriginMacAddress: append([]byte(nil), n.MAC[:]...),
 		HopCount:         uint32(len(n.RoutePath) + 1),
 	}

@@ -7,7 +7,7 @@ require (
 	github.com/gorilla/mux v1.8.1
 	github.com/prometheus/client_golang v1.24.1
 	github.com/segmentio/kafka-go v0.4.51
-	github.com/superbrobenji/lattice-protocol v0.5.0
+	github.com/superbrobenji/lattice-protocol v0.6.0
 	go.bug.st/serial v1.8.0
 	golang.org/x/crypto v0.54.0
 	google.golang.org/protobuf v1.36.11

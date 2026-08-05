@@ -94,8 +94,9 @@ func main() {
 	masterKeyPath, masterMAC := loadMasterIdentity()
 
 	// Secondary master identity (dual-master mode only). When DUAL_MASTER_ENABLED,
-	// firmware Phase 4+5 expects JOIN_ACK to carry SecondaryMasterMac +
-	// SecondaryPublicKey so nodes can register the failover master.
+	// firmware Phase 4+5 expects JOIN_ACK to carry the secondary master's MAC +
+	// public key (packed into data[4..42], v6 wire shrink — see
+	// mesh.ApproveEnrollment) so nodes can register the failover master.
 	var secondaryMasterKeyPath string
 	var secondaryMasterMAC [6]byte
 	if dualMasterEnabled {
