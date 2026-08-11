@@ -21,7 +21,8 @@ task is independently verifiable against real source already surveyed in the des
 - Docs-only phase, with one exception: `server/env.example` (Task 6) gets new variable entries —
   this is template/example content, not executable code, and the spec explicitly scopes it in.
 - No fix to `docker-compose.yml`'s `ADMIN_KEY`-not-passed-to-orchestrator gap anywhere in this
-  plan — Task 14 files a GitHub issue for it instead. No other code changes of any kind.
+  plan — see "GitHub Issue (already filed)" below; it was pre-filed and no task in this plan needs
+  to file it. No other code changes of any kind.
 - No wire-protocol changes.
 - Every concrete claim (env var name, route path, port number, CI job name, timeout constant,
   framework version) must be independently verified against current source by the task's
