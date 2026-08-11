@@ -302,7 +302,7 @@ curl http://your-server:8080/api/v1/enrollments/pending \
       "publicKey": "3f8a1c2d9b...",
       "status": 0,
       "receivedAt": 1754899200,
-      "approvedAt": 0
+      "approvedAt": -62135596800
     }
   ]
 }
@@ -313,8 +313,11 @@ devices apart before they've been given a friendly name. `publicKey` is a
 cryptographic identifier baked into the device that lets the server verify
 it's really talking to that device later on; you never need to type it
 anywhere yourself. `status` is a number: `0` means still waiting, `1` means
-approved, `2` means rejected. `receivedAt` is when the request came in;
-`approvedAt` stays `0` until someone approves it.
+approved, `2` means rejected. `receivedAt` is when the request came in.
+`approvedAt` looks strange here — that huge negative number is just the
+computer's way of representing "this has never happened," since the device
+hasn't been approved yet. Once someone approves it, `approvedAt` becomes a
+normal, recent timestamp like `receivedAt`.
 
 **Visit:** `GET /api/v1/enrollments` — needs the API key. Same list, but
 including every device ever seen — pending, approved, and rejected — not just
