@@ -70,6 +70,18 @@ type MeshServer struct {
 	// Command tracking
 	commandStore *CommandStore
 
+	// Master keypair and MAC
+	masterPublicKey  [32]byte
+	masterPrivateKey [32]byte
+	masterMAC        [6]byte
+
+	// Secondary master identity (dual-master mode). Populated when config
+	// SecondaryMasterKeyPath is set; leaving zero disables secondary
+	// stamping in JOIN_ACK.
+	secondaryMasterPublicKey  [32]byte
+	secondaryMasterPrivateKey [32]byte
+	secondaryMasterMAC        [6]byte
+
 	// Runtime state
 	ctx     context.Context
 	cancel  context.CancelFunc
@@ -88,6 +100,14 @@ type MeshServerConfig struct {
 	AuthRegistryPath string // e.g. "data/nodeauth.json"
 	NodeRegistryPath string // e.g. "data/nodes.json"
 	ZoneRegistryPath string // e.g. "data/zones.json"
+	MasterKeyPath    string // e.g. "data/masterkey.json"
+	MasterMAC        [6]byte
+	// Secondary master identity — only stamped into JOIN_ACK when both
+	// SecondaryMasterKeyPath and SecondaryMasterMAC are set. Firmware
+	// Phase 4+5 consume these v3 fields; leaving them zero yields
+	// single-master enrollments.
+	SecondaryMasterKeyPath string
+	SecondaryMasterMAC     [6]byte
 }
 
 // NewMeshServer creates a new mesh server
@@ -115,7 +135,7 @@ func NewMeshServer(config MeshServerConfig) *MeshServer {
 		}
 	}
 
-	return &MeshServer{
+	ms := &MeshServer{
 		nodeRegistry:     nodeRegistry,
 		messageBuilder:   NewMessageBuilder(),
 		eventStore:       config.EventStore,
@@ -132,10 +152,34 @@ func NewMeshServer(config MeshServerConfig) *MeshServer {
 		nodeOnlineState:  make(map[string]bool),
 		zoneRegistry:     zoneRegistry,
 		zoneRegistryPath: config.ZoneRegistryPath,
-		commandStore:     NewCommandStore(),
-		ctx:              ctx,
-		cancel:           cancel,
+		commandStore:       NewCommandStore(),
+		masterMAC:          config.MasterMAC,
+		secondaryMasterMAC: config.SecondaryMasterMAC,
+		ctx:                ctx,
+		cancel:             cancel,
 	}
+
+	if config.MasterKeyPath != "" {
+		kp, err := LoadOrGenerateMasterKey(config.MasterKeyPath)
+		if err != nil {
+			slog.Warn("Failed to load or generate master keypair", "error", err)
+		} else {
+			ms.masterPublicKey = kp.PublicKey
+			ms.masterPrivateKey = kp.PrivateKey
+		}
+	}
+
+	if config.SecondaryMasterKeyPath != "" {
+		kp, err := LoadOrGenerateMasterKey(config.SecondaryMasterKeyPath)
+		if err != nil {
+			slog.Warn("Failed to load or generate secondary master keypair", "error", err)
+		} else {
+			ms.secondaryMasterPublicKey = kp.PublicKey
+			ms.secondaryMasterPrivateKey = kp.PrivateKey
+		}
+	}
+
+	return ms
 }
 
 // Start starts the mesh server
@@ -359,9 +403,9 @@ func (ms *MeshServer) messageProcessor(comm *SerialComm, label string) {
 
 // handleMessage processes a received mesh message
 func (ms *MeshServer) handleMessage(msg *MeshMessage) error {
-	// Proto version check — 0 is legacy (pre-security), 3 is current (protocol v3).
-	// Flag-day: v2 nodes must be reflashed. Drop 1, 2, and any future unknown version.
-	if msg.ProtoVersion != 3 {
+	// Proto version check — 0 is legacy (pre-security), 5 is current (protocol v5).
+	// Flag-day: v4 nodes must be reflashed. Drop 1, 2, 3, 4, and any future unknown version.
+	if msg.ProtoVersion != 5 {
 		slog.Warn("Unsupported proto version — dropping", "version", msg.ProtoVersion, "origin", fmt.Sprintf("%x", msg.OriginMacAddress))
 		return nil
 	}
@@ -674,11 +718,31 @@ func (ms *MeshServer) ApproveEnrollment(macStr string, params ApprovalParams) er
 	}
 
 	if ms.serialComm != nil {
-		// Send JOIN_ACK
+		// Send JOIN_ACK with protocol v5 fields.
+		//
+		// v6 wire shrink (data[64] layout, design §8):
+		//   data[0..4]   = node pubkey fingerprint (existing)
+		//   data[4..10]  = secondaryMasterMac (dual-master JOIN_ACK only, else zero)
+		//   data[10..42] = secondaryPublicKey (dual-master JOIN_ACK only, else zero)
+		//   data[42..64] = zero
+		// The top-level SecondaryMasterMac/SecondaryPublicKey proto fields
+		// (15/16) were retired in lattice-protocol v0.6.0.
+		fingerprint := make([]byte, MaxDataLength)
+		copy(fingerprint[0:4], node.PublicKey[:4])
+		// Dual-master: stamp secondary identity when configured. Firmware
+		// Phase 4+5 (Enrollment::processJoinAck) registers the secondary
+		// only when both fields are present and MAC is non-zero.
+		if ms.secondaryMasterMAC != ([6]byte{}) {
+			copy(fingerprint[4:10], ms.secondaryMasterMAC[:])
+			copy(fingerprint[10:42], ms.secondaryMasterPublicKey[:])
+		}
 		ackMsg := &MeshMessage{
+			ProtoVersion:     5,
 			MessageType:      MessageTypeJoinAck,
+			OriginMacAddress: ms.masterMAC[:],
 			TargetMacAddress: node.MAC[:],
-			PublicKey:        node.PublicKey[:],
+			PublicKey:        ms.masterPublicKey[:],
+			Data:             fingerprint,
 		}
 		if err := ms.activeOutboundComm().WriteFrame(ackMsg); err != nil {
 			slog.Warn("Failed to send JOIN_ACK", "mac", macStr, "error", err)
@@ -691,9 +755,11 @@ func (ms *MeshServer) ApproveEnrollment(macStr string, params ApprovalParams) er
 			copy(payload[1:7], node.MAC[:])   // target MAC
 			payload[7] = nodeId
 			idMsg := &MeshMessage{
-				MessageType: MessageTypeSerialCmdBroadcast,
-				DataType:    AdapterTypeSerial,
-				Data:        payload,
+				ProtoVersion:     5,
+				MessageType:      MessageTypeSerialCmdBroadcast,
+				OriginMacAddress: ms.masterMAC[:],
+				DataType:         AdapterTypeSerial,
+				Data:             payload,
 			}
 			if err := ms.activeOutboundComm().WriteFrame(idMsg); err != nil {
 				slog.Warn("Failed to send OP_NODE_ID_SET", "mac", macStr, "nodeId", nodeId, "error", err)
@@ -705,8 +771,11 @@ func (ms *MeshServer) ApproveEnrollment(macStr string, params ApprovalParams) er
 			configMsg, buildErr := ms.messageBuilder.BuildConfigSetMessage(node.MAC[:], inheritedAdapterType)
 			if buildErr != nil {
 				slog.Warn("Failed to build OP_CONFIG_SET for hotswap", "mac", macStr, "error", buildErr)
-			} else if err := ms.serialComm.WriteFrame(configMsg); err != nil {
-				slog.Warn("Failed to send OP_CONFIG_SET on hotswap", "mac", macStr, "error", err)
+			} else {
+				configMsg.OriginMacAddress = ms.masterMAC[:]
+				if err := ms.serialComm.WriteFrame(configMsg); err != nil {
+					slog.Warn("Failed to send OP_CONFIG_SET on hotswap", "mac", macStr, "error", err)
+				}
 			}
 		}
 	}
@@ -734,7 +803,9 @@ func (ms *MeshServer) RejectEnrollment(macStr string) error {
 	// Send rejection frame: JOIN_ACK with empty PublicKey = rejection signal to firmware.
 	if ms.serialComm != nil {
 		rejectMsg := &MeshMessage{
+			ProtoVersion:     5,
 			MessageType:      MessageTypeJoinAck,
+			OriginMacAddress: ms.masterMAC[:],
 			TargetMacAddress: mac[:],
 			// PublicKey intentionally absent — rejection signal
 		}
@@ -791,6 +862,7 @@ func (ms *MeshServer) ConfigureNode(targetMAC []byte, adapterType int32) error {
 	if err != nil {
 		return fmt.Errorf("failed to build config message: %w", err)
 	}
+	msg.OriginMacAddress = ms.masterMAC[:]
 
 	slog.Info("Configuring node", "mac", macToString(targetMAC), "adapterType", GetAdapterTypeName(adapterType))
 
@@ -866,7 +938,7 @@ func (ms *MeshServer) SendNodeData(dataType int32, data []byte) error {
 	payload := make([]byte, MaxDataLength)
 	copy(payload, data)
 	msg := &MeshMessage{
-		ProtoVersion: 3,
+		ProtoVersion: 5,
 		MessageType:  MessageTypeSerialCmdBroadcast,
 		DataType:     dataType,
 		Data:         payload,
@@ -1004,9 +1076,10 @@ func (ms *MeshServer) SetTxPowerPreset(preset uint8) error {
 	payload[0] = OpTxPowerSet
 	payload[1] = preset
 	msg := &MeshMessage{
-		MessageType: MessageTypeAdapterData,
-		DataType:    AdapterTypeSerial,
-		Data:        payload,
+		ProtoVersion: 5,
+		MessageType:  MessageTypeAdapterData,
+		DataType:     AdapterTypeSerial,
+		Data:         payload,
 	}
 	if err := ms.activeOutboundComm().WriteFrame(msg); err != nil {
 		return fmt.Errorf("failed to send TX power preset: %w", err)
