@@ -53,6 +53,30 @@ Expected response (no nodes enrolled yet):
 
 ## 4. Enroll a Node
 
+Before enrolling against real firmware, the orchestrator needs a master identity configured —
+skip this against a real ESP32 master and every enrollment will silently fail (see below).
+
+### Configure the Master Identity
+
+Enrollment relies on two pieces of master-identity config in `.env`:
+
+- `MASTER_KEY_PATH` — path to the master's persisted Curve25519 keypair. You don't need to
+  generate this yourself: the orchestrator auto-generates and persists a keypair at this path
+  on first run if the file doesn't exist. The default (`data/masterkey.json`) works for local
+  development.
+- `MASTER_MAC` — the physical WiFi MAC address of the master ESP32 (e.g. `aa:bb:cc:dd:ee:ff`).
+  This *is* required, and there's no tooling in this repo to read it automatically — obtain it
+  from the device itself (e.g. a label on the board, or ESP32 flashing/debug tooling such as
+  `esptool.py read_mac` over the same USB connection used for enrollment), then set it in `.env`.
+
+If `MASTER_MAC` is left unset, the orchestrator logs a startup warning and every `JOIN_ACK` it
+sends carries an all-zero origin MAC address — connected firmware will reject the enrollment.
+This is easy to miss because the stack still starts up and looks healthy; only the enrollment
+handshake itself fails.
+
+(Running dual-master failover? `SECONDARY_MASTER_KEY_PATH` and `SECONDARY_MASTER_MAC` work the
+same way and are only read when `DUAL_MASTER_ENABLED=true`.)
+
 After connecting an ESP32 master node via USB:
 
 ### Check Pending Enrollments
