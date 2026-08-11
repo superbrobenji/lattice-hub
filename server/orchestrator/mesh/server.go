@@ -75,6 +75,13 @@ type MeshServer struct {
 	masterPrivateKey [32]byte
 	masterMAC        [6]byte
 
+	// Secondary master identity (dual-master mode). Populated when config
+	// SecondaryMasterKeyPath is set; leaving zero disables secondary
+	// stamping in JOIN_ACK.
+	secondaryMasterPublicKey  [32]byte
+	secondaryMasterPrivateKey [32]byte
+	secondaryMasterMAC        [6]byte
+
 	// Runtime state
 	ctx     context.Context
 	cancel  context.CancelFunc
@@ -95,6 +102,12 @@ type MeshServerConfig struct {
 	ZoneRegistryPath string // e.g. "data/zones.json"
 	MasterKeyPath    string // e.g. "data/masterkey.json"
 	MasterMAC        [6]byte
+	// Secondary master identity — only stamped into JOIN_ACK when both
+	// SecondaryMasterKeyPath and SecondaryMasterMAC are set. Firmware
+	// Phase 4+5 consume these v3 fields; leaving them zero yields
+	// single-master enrollments.
+	SecondaryMasterKeyPath string
+	SecondaryMasterMAC     [6]byte
 }
 
 // NewMeshServer creates a new mesh server
@@ -139,10 +152,11 @@ func NewMeshServer(config MeshServerConfig) *MeshServer {
 		nodeOnlineState:  make(map[string]bool),
 		zoneRegistry:     zoneRegistry,
 		zoneRegistryPath: config.ZoneRegistryPath,
-		commandStore:     NewCommandStore(),
-		masterMAC:        config.MasterMAC,
-		ctx:              ctx,
-		cancel:           cancel,
+		commandStore:       NewCommandStore(),
+		masterMAC:          config.MasterMAC,
+		secondaryMasterMAC: config.SecondaryMasterMAC,
+		ctx:                ctx,
+		cancel:             cancel,
 	}
 
 	if config.MasterKeyPath != "" {
@@ -152,6 +166,16 @@ func NewMeshServer(config MeshServerConfig) *MeshServer {
 		} else {
 			ms.masterPublicKey = kp.PublicKey
 			ms.masterPrivateKey = kp.PrivateKey
+		}
+	}
+
+	if config.SecondaryMasterKeyPath != "" {
+		kp, err := LoadOrGenerateMasterKey(config.SecondaryMasterKeyPath)
+		if err != nil {
+			slog.Warn("Failed to load or generate secondary master keypair", "error", err)
+		} else {
+			ms.secondaryMasterPublicKey = kp.PublicKey
+			ms.secondaryMasterPrivateKey = kp.PrivateKey
 		}
 	}
 
@@ -379,9 +403,9 @@ func (ms *MeshServer) messageProcessor(comm *SerialComm, label string) {
 
 // handleMessage processes a received mesh message
 func (ms *MeshServer) handleMessage(msg *MeshMessage) error {
-	// Proto version check — 0 is legacy (pre-security), 3 is current (protocol v3).
-	// Flag-day: v2 nodes must be reflashed. Drop 1, 2, and any future unknown version.
-	if msg.ProtoVersion != 3 {
+	// Proto version check — 0 is legacy (pre-security), 5 is current (protocol v5).
+	// Flag-day: v4 nodes must be reflashed. Drop 1, 2, 3, 4, and any future unknown version.
+	if msg.ProtoVersion != 5 {
 		slog.Warn("Unsupported proto version — dropping", "version", msg.ProtoVersion, "origin", fmt.Sprintf("%x", msg.OriginMacAddress))
 		return nil
 	}
@@ -694,11 +718,26 @@ func (ms *MeshServer) ApproveEnrollment(macStr string, params ApprovalParams) er
 	}
 
 	if ms.serialComm != nil {
-		// Send JOIN_ACK with protocol v3 fields
+		// Send JOIN_ACK with protocol v5 fields.
+		//
+		// v6 wire shrink (data[64] layout, design §8):
+		//   data[0..4]   = node pubkey fingerprint (existing)
+		//   data[4..10]  = secondaryMasterMac (dual-master JOIN_ACK only, else zero)
+		//   data[10..42] = secondaryPublicKey (dual-master JOIN_ACK only, else zero)
+		//   data[42..64] = zero
+		// The top-level SecondaryMasterMac/SecondaryPublicKey proto fields
+		// (15/16) were retired in lattice-protocol v0.6.0.
 		fingerprint := make([]byte, MaxDataLength)
 		copy(fingerprint[0:4], node.PublicKey[:4])
+		// Dual-master: stamp secondary identity when configured. Firmware
+		// Phase 4+5 (Enrollment::processJoinAck) registers the secondary
+		// only when both fields are present and MAC is non-zero.
+		if ms.secondaryMasterMAC != ([6]byte{}) {
+			copy(fingerprint[4:10], ms.secondaryMasterMAC[:])
+			copy(fingerprint[10:42], ms.secondaryMasterPublicKey[:])
+		}
 		ackMsg := &MeshMessage{
-			ProtoVersion:     3,
+			ProtoVersion:     5,
 			MessageType:      MessageTypeJoinAck,
 			OriginMacAddress: ms.masterMAC[:],
 			TargetMacAddress: node.MAC[:],
@@ -716,7 +755,7 @@ func (ms *MeshServer) ApproveEnrollment(macStr string, params ApprovalParams) er
 			copy(payload[1:7], node.MAC[:])   // target MAC
 			payload[7] = nodeId
 			idMsg := &MeshMessage{
-				ProtoVersion:     3,
+				ProtoVersion:     5,
 				MessageType:      MessageTypeSerialCmdBroadcast,
 				OriginMacAddress: ms.masterMAC[:],
 				DataType:         AdapterTypeSerial,
@@ -764,7 +803,7 @@ func (ms *MeshServer) RejectEnrollment(macStr string) error {
 	// Send rejection frame: JOIN_ACK with empty PublicKey = rejection signal to firmware.
 	if ms.serialComm != nil {
 		rejectMsg := &MeshMessage{
-			ProtoVersion:     3,
+			ProtoVersion:     5,
 			MessageType:      MessageTypeJoinAck,
 			OriginMacAddress: ms.masterMAC[:],
 			TargetMacAddress: mac[:],
@@ -899,7 +938,7 @@ func (ms *MeshServer) SendNodeData(dataType int32, data []byte) error {
 	payload := make([]byte, MaxDataLength)
 	copy(payload, data)
 	msg := &MeshMessage{
-		ProtoVersion: 3,
+		ProtoVersion: 5,
 		MessageType:  MessageTypeSerialCmdBroadcast,
 		DataType:     dataType,
 		Data:         payload,
@@ -1037,7 +1076,7 @@ func (ms *MeshServer) SetTxPowerPreset(preset uint8) error {
 	payload[0] = OpTxPowerSet
 	payload[1] = preset
 	msg := &MeshMessage{
-		ProtoVersion: 3,
+		ProtoVersion: 5,
 		MessageType:  MessageTypeAdapterData,
 		DataType:     AdapterTypeSerial,
 		Data:         payload,

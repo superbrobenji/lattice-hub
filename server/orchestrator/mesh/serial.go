@@ -34,6 +34,12 @@ type tcpPort struct{ net.Conn }
 
 func (t *tcpPort) Flush() error { return nil }
 
+// deadliner is optionally implemented by transports (net.Conn does).
+// serial.Port does not — deadline is a no-op on real serial hardware.
+type deadliner interface {
+	SetWriteDeadline(time.Time) error
+}
+
 // openTransport opens the configured mesh transport. A spec beginning with
 // "tcp://" dials a TCP stream (used by the stub-mode mesh simulator, which
 // may still be starting — hence the retry loop); anything else is a serial
@@ -83,11 +89,17 @@ func (s *SerialComm) WriteFrame(msg *MeshMessage) error {
 	binary.LittleEndian.PutUint16(header, uint16(len(data)))
 
 	// Write header
+	if d, ok := s.port.(deadliner); ok {
+		_ = d.SetWriteDeadline(time.Now().Add(2 * time.Second))
+	}
 	if _, err := s.port.Write(header); err != nil {
 		return fmt.Errorf("failed to write header: %w", err)
 	}
 
 	// Write data
+	if d, ok := s.port.(deadliner); ok {
+		_ = d.SetWriteDeadline(time.Now().Add(2 * time.Second))
+	}
 	if _, err := s.port.Write(data); err != nil {
 		return fmt.Errorf("failed to write data: %w", err)
 	}

@@ -16,8 +16,10 @@ message MeshMessage {
   uint32 protoVersion      = 10; // must be 1 for v1 messages (was field 8 — CORRECTED)
   bytes  public_key        = 11; // enrollment/join_ack: 32-byte Curve25519 public key
   optional uint32 routeLen          = 12; // v3: relay path length (header field)
-  optional bytes  routePath         = 13; // v3: relay MACs — routeLen × 6 bytes, forward order
+  optional bytes  routePath         = 13; // v3: relay MACs — routeLen × 6 bytes, forward order (48 = MAX_HOPS(8) × 6, v6)
   optional bytes  authTag           = 14; // v3: ChaCha20-Poly1305 tag over data[64] (firmware-only)
-  optional bytes  secondaryMasterMac = 15; // v3: dual-master: secondary master MAC in JOIN_ACK (Phase 4)
-  optional bytes  secondaryPublicKey  = 16; // v3: dual-master: secondary master Curve25519 pubkey (Phase 4)
+  // v6 (wire shrink): fields 15/16 (secondaryMasterMac, secondaryPublicKey) removed.
+  // JOIN_ACK now packs secondary master identity into data[4..42] instead — see
+  // ApproveEnrollment. Field numbers 15/16 are retired, not reused.
+  optional bytes  authPath           = 17; // v4: chained HMAC-SHA256-64 over route_path (8 bytes), firmware-authored, master-verified; opaque to hub
 }
