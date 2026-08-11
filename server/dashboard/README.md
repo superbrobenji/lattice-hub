@@ -2,7 +2,7 @@
 
 # Lattice Dashboard
 
-React Router v8 web application for monitoring and controlling the Lattice
+React Router v8.2.0 web application for monitoring and controlling the Lattice
 motion sensor mesh network. Communicates with the orchestrator REST API.
 
 ## Features

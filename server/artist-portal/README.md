@@ -2,7 +2,7 @@
 
 # Lattice Artist Portal
 
-Public-facing React Router v8 (SSR) web application for artists working with
+Public-facing React Router v8.2.0 (SSR) web application for artists working with
 the Lattice motion sensor mesh network. Talks to the orchestrator REST API
 server-side and subscribes to its SSE event stream in the browser. Served on
 port `3001` in production.
