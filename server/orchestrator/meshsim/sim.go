@@ -169,6 +169,12 @@ func (s *Simulator) writeLocked(msg *mesh.MeshMessage) {
 	}
 	if err := s.comm.WriteFrame(msg); err != nil {
 		slog.Warn("write frame failed", "err", err)
+		// A write error (e.g. deadline exceeded on a stalled TCP peer) means
+		// this comm is no longer usable — drop it so subsequent ticks stop
+		// retrying against a dead connection. The peer's own read loop will
+		// also clear s.comm on its own error path; this just ensures the
+		// write side doesn't wait for that to happen.
+		s.comm = nil
 	}
 }
 

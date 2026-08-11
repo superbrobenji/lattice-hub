@@ -51,7 +51,7 @@ func TestHealthFrameLayout(t *testing.T) {
 		t.Fatal("no health frame from LED node")
 		return
 	}
-	if led.DataType != int32(mesh.AdapterTypeSerial) || led.ProtoVersion != 3 || led.EpochNum != 0 {
+	if led.DataType != int32(mesh.AdapterTypeSerial) || led.ProtoVersion != 5 || led.EpochNum != 0 {
 		t.Fatalf("bad envelope: %+v", led)
 	}
 	if len(led.Data) < 12 || led.Data[1] != 3 {
@@ -106,7 +106,7 @@ func TestCommandAckEchoesToken(t *testing.T) {
 		MessageType:  uint32(mesh.MessageTypeSerialCmdBroadcast),
 		DataType:     int32(mesh.AdapterTypeLED),
 		Data:         payload,
-		ProtoVersion: 3,
+		ProtoVersion: 5,
 	}
 	go func() {
 		if err := orch.WriteFrame(cmd); err != nil {
@@ -136,7 +136,7 @@ func TestOfflineNodeDoesNotAck(t *testing.T) {
 	}
 	payload := make([]byte, mesh.MaxDataLength)
 	payload[0] = byte(mesh.OpLEDSolid)
-	cmd := &mesh.MeshMessage{MessageType: uint32(mesh.MessageTypeSerialCmdBroadcast), DataType: int32(mesh.AdapterTypeLED), Data: payload, ProtoVersion: 3}
+	cmd := &mesh.MeshMessage{MessageType: uint32(mesh.MessageTypeSerialCmdBroadcast), DataType: int32(mesh.AdapterTypeLED), Data: payload, ProtoVersion: 5}
 	go orch.WriteFrame(cmd) //nolint:errcheck
 	// Force a tick afterwards; the only frames should be health/route from the PIR node, no 0xE0.
 	go sim.tick(time.Now().Add(time.Hour))
@@ -153,7 +153,7 @@ func TestOfflineNodeDoesNotAck(t *testing.T) {
 
 func TestHealthReqMakesAllNodesReport(t *testing.T) {
 	sim, orch := newTestSim(t, seededCfg())
-	req := &mesh.MeshMessage{MessageType: uint32(mesh.MessageTypeSerialCmdBroadcast), DataType: int32(mesh.AdapterTypeSerial), Data: []byte{byte(mesh.OpHealthReq)}, ProtoVersion: 3}
+	req := &mesh.MeshMessage{MessageType: uint32(mesh.MessageTypeSerialCmdBroadcast), DataType: int32(mesh.AdapterTypeSerial), Data: []byte{byte(mesh.OpHealthReq)}, ProtoVersion: 5}
 	go orch.WriteFrame(req)           //nolint:errcheck
 	time.Sleep(50 * time.Millisecond) // let HandleFrame mark nodes due
 	go sim.tick(time.Now())

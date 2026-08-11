@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"path/filepath"
 	"testing"
 	"time"
 )
@@ -14,6 +15,7 @@ import (
 // port — suitable for testing the API layer in isolation.
 func newTestMeshServer(t *testing.T) *MeshServer {
 	t.Helper()
+	tempDir := t.TempDir()
 	cfg := MeshServerConfig{
 		SerialPort:       "",
 		BaudRate:         115200,
@@ -21,6 +23,8 @@ func newTestMeshServer(t *testing.T) *MeshServer {
 		EventStore:       NewMockEventStore(),
 		AuthRegistryPath: "",
 		NodeRegistryPath: "",
+		MasterKeyPath:    filepath.Join(tempDir, "masterkey.json"),
+		MasterMAC:        [6]byte{0xDE, 0xAD, 0xBE, 0xEF, 0x00, 0x01},
 	}
 	return NewMeshServer(cfg)
 }
