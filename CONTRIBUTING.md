@@ -61,6 +61,7 @@ All jobs must be green before a PR can merge:
 
 | Job | What it checks |
 |-----|----------------|
+| `proto-sync` | Regenerates `mesh.pb.go` from proto and fails if the committed file has drifted |
 | `go-test` | `go test ./...` + `go vet ./...` (orchestrator) |
 | `go-lint` | golangci-lint default ruleset (orchestrator) |
 | `sidecar-test` | `go test ./...` + `go vet ./...` (sidecar) |

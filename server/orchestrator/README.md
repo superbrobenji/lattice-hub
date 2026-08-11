@@ -40,6 +40,10 @@ SPDX-License-Identifier: GPL-3.0-or-later
 | `SERIAL_PORT` | `/dev/ttyUSB0` | Serial port path |
 | `SERIAL_PORT_SECONDARY` | *(unset)* | Secondary serial port; only used when `DUAL_MASTER_ENABLED=true` |
 | `DUAL_MASTER_ENABLED` | *(unset)* | Set to `true` to enable the secondary serial port |
+| `MASTER_KEY_PATH` | `data/masterkey.json` | Path to the master's persisted Curve25519 keypair (JSON). Auto-generated at this path on first run if the file doesn't exist. |
+| `MASTER_MAC` | *(unset)* | Physical WiFi MAC of the master ESP32, e.g. `aa:bb:cc:dd:ee:ff`. If unset, a startup warning is logged (`"Master MAC not configured — JOIN_ACK OriginMacAddress will be all-zero and firmware will reject enrollments"`) and every JOIN_ACK's `OriginMacAddress` is all-zero, so enrolling nodes will reject it. |
+| `SECONDARY_MASTER_KEY_PATH` | `data/masterkey-secondary.json` | Path to the secondary master's persisted keypair. Only read when `DUAL_MASTER_ENABLED=true`. |
+| `SECONDARY_MASTER_MAC` | *(unset)* | Physical WiFi MAC of the secondary master ESP32. Only read when `DUAL_MASTER_ENABLED=true`; if unset in that mode, a startup warning is logged (`"Dual-master enabled but SECONDARY_MASTER_MAC not configured — secondary JOIN_ACK fields will be omitted"`) and the secondary MAC/public-key fields are omitted from JOIN_ACK. |
 | `BAUD_RATE` | `115200` | Serial baud rate |
 | `API_PORT` | `8080` | HTTP API port |
 | `KAFKA_BROKER` | `kafka:9092` | Kafka broker address |
@@ -86,6 +90,16 @@ Endpoints are split into three tiers:
   `POST /api/v1/enrollments/{mac}/reject`, `DELETE /api/v1/nodes/{id}`, and
   `DELETE /api/v1/zones/{id}`. If `ADMIN_KEY` is unset, these routes fall back
   to the API-key tier (a startup warning is logged).
+
+> **Caveat — `ADMIN_KEY` is not wired up in the default compose setup.**
+> `server/docker-compose.yml`'s `orchestrator` service `environment:` block
+> does not pass `ADMIN_KEY` through (unlike the `dashboard`, `artist-portal`,
+> and `sidecar` services, which all require it). Since the orchestrator falls
+> back to the `API_KEY` tier whenever `ADMIN_KEY` is unset, a stock
+> `docker compose up` deployment gives any `API_KEY` holder access to the
+> admin routes too — there is no real tier separation until `ADMIN_KEY` is
+> added to the orchestrator's environment. Tracked as
+> [lattice-hub#122](https://github.com/superbrobenji/lattice-hub/issues/122).
 
 ### Public endpoints (no auth)
 
@@ -189,6 +203,22 @@ Serial 115200 8N1 with 2-byte little-endian length framing:
 [2 bytes: length (little-endian)] [N bytes: protobuf message]
 ```
 
+### Protocol Version Enforcement
+
+Every message the orchestrator receives is checked in `handleMessage`
+(`mesh/server.go`): `if msg.ProtoVersion != 5 { ... }`. Only `ProtoVersion 5`
+is currently accepted — `0` was the legacy pre-security wire format, and
+`1`–`4` are earlier revisions of the current secure format that this is a
+flag-day cutover from (v4 nodes must be reflashed, not just re-paired).
+
+A message that fails the check is **logged and dropped**, not silently
+discarded: the server emits `slog.Warn("Unsupported proto version —
+dropping", "version", msg.ProtoVersion, "origin", ...)` and returns without
+processing the message further. No error is sent back over the wire.
+
+See [docs/wire_protocol.md](../../docs/wire_protocol.md) for the full deep-dive, including the
+enrollment handshake sequence.
+
 ### Message Types
 
 | Type | Value | Description |
@@ -199,6 +229,30 @@ Serial 115200 8N1 with 2-byte little-endian length framing:
 | `SERIAL_CMD_BROADCAST` | 3 | Server broadcast commands |
 | `JOIN_ACK` | 4 | Server → node: enrollment approved |
 | `ROUTE_REPORT` | 5 | Node → server: routing path report |
+
+### JOIN_ACK Payload Layout
+
+JOIN_ACK's `Data` field is a fixed `MaxDataLength = 64`-byte payload built in
+`mesh.ApproveEnrollment` (`mesh/server.go`). Byte layout (v0.6.0 wire shrink,
+design §8):
+
+| Bytes | Field | Notes |
+|-------|-------|-------|
+| `data[0..4]` | Node public-key fingerprint | First 4 bytes of the enrolling node's public key |
+| `data[4..10]` | Secondary master MAC | Dual-master JOIN_ACK only; zero otherwise |
+| `data[10..42]` | Secondary master public key | Dual-master JOIN_ACK only; zero otherwise |
+| `data[42..64]` | Reserved | Always zero |
+
+The secondary-master fields (bytes 4–42) are only populated when
+`DUAL_MASTER_ENABLED=true` and a secondary master MAC is configured; single-
+master deployments leave that range zeroed. As of lattice-protocol v0.6.0,
+the top-level `SecondaryMasterMac`/`SecondaryPublicKey` proto fields (field
+numbers 15/16 on the message envelope) were retired — dual-master identity
+now travels exclusively inside this JOIN_ACK payload instead of separate
+envelope fields.
+
+See [docs/wire_protocol.md](../../docs/wire_protocol.md) for the full deep-dive on JOIN_ACK and
+the rest of the wire protocol.
 
 ### Adapter Types
 
@@ -251,7 +305,7 @@ docker compose down
 
 ### Prerequisites
 
-- Go 1.23+
+- Go 1.25+
 - Docker (for Kafka dependency)
 
 ### Build and test

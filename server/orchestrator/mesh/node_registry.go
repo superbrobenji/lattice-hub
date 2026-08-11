@@ -71,6 +71,9 @@ func (nr *NodeRegistry) AssignNode(mac []byte, nodeId uint8, name, zone string) 
 	nr.mu.Lock()
 	defer nr.mu.Unlock()
 	macStr := macToString(mac)
+	if name == "" {
+		name = macStr // #63 belt-and-suspenders: never store an empty name
+	}
 	node, exists := nr.nodes[macStr]
 	if !exists {
 		node = &NodeInfo{

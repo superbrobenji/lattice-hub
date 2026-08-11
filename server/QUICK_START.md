@@ -23,7 +23,7 @@ API_KEY=<generate with: openssl rand -hex 32>
 ADMIN_KEY=<generate with: openssl rand -hex 32>
 ```
 
-Both keys ship as placeholders in `env.example` and must be replaced — Compose refuses to start without them. `ADMIN_KEY` guards the admin tier (enrollment approve/reject and hard deletes) and may differ from `API_KEY`. All other variables have working defaults for local development.
+Both keys ship as placeholders in `env.example` and must be replaced — Compose refuses to start without them. `ADMIN_KEY` guards the admin tier (enrollment approve/reject and hard deletes). **Set `API_KEY` and `ADMIN_KEY` to the same value.** The orchestrator container doesn't currently receive `ADMIN_KEY` (see `docker-compose.yml`'s `orchestrator` service `environment:` block) and falls back to checking admin routes against `API_KEY` instead — if the two values differ, admin endpoints return 401 ([lattice-hub#122](https://github.com/superbrobenji/lattice-hub/issues/122)). All other variables have working defaults for local development.
 
 ## 2. Start the Stack
 
@@ -52,6 +52,30 @@ Expected response (no nodes enrolled yet):
 ```
 
 ## 4. Enroll a Node
+
+Before enrolling against real firmware, the orchestrator needs a master identity configured —
+skip this against a real ESP32 master and every enrollment will silently fail (see below).
+
+### Configure the Master Identity
+
+Enrollment relies on two pieces of master-identity config in `.env`:
+
+- `MASTER_KEY_PATH` — path to the master's persisted Curve25519 keypair. You don't need to
+  generate this yourself: the orchestrator auto-generates and persists a keypair at this path
+  on first run if the file doesn't exist. The default (`data/masterkey.json`) works for local
+  development.
+- `MASTER_MAC` — the physical WiFi MAC address of the master ESP32 (e.g. `aa:bb:cc:dd:ee:ff`).
+  This *is* required, and there's no tooling in this repo to read it automatically — obtain it
+  from the device itself (e.g. a label on the board, or ESP32 flashing/debug tooling such as
+  `esptool.py read_mac` over the same USB connection used for enrollment), then set it in `.env`.
+
+If `MASTER_MAC` is left unset, the orchestrator logs a startup warning and every `JOIN_ACK` it
+sends carries an all-zero origin MAC address — connected firmware will reject the enrollment.
+This is easy to miss because the stack still starts up and looks healthy; only the enrollment
+handshake itself fails.
+
+(Running dual-master failover? `SECONDARY_MASTER_KEY_PATH` and `SECONDARY_MASTER_MAC` work the
+same way and are only read when `DUAL_MASTER_ENABLED=true`.)
 
 After connecting an ESP32 master node via USB:
 
@@ -173,10 +197,15 @@ grep API_KEY .env
 grep ADMIN_KEY .env
 ```
 
+Make sure `API_KEY` and `ADMIN_KEY` are set to the **same value**. The orchestrator container
+doesn't currently receive `ADMIN_KEY` and falls back to checking admin routes against `API_KEY`
+instead — if the two differ, every admin endpoint returns 401 even though the request itself is
+correct ([lattice-hub#122](https://github.com/superbrobenji/lattice-hub/issues/122)).
+
 Ensure the correct header is used:
 - Public endpoints (`/health`, `/metrics`, and v1 reads like `/api/v1/status`, `/api/v1/nodes`, `/api/v1/events`): no auth required
 - Protected endpoints: `-H "Authorization: Bearer $API_KEY"`
-- Admin endpoints (enrollment approve/reject, node/zone delete): `-H "Authorization: Bearer $ADMIN_KEY"`
+- Admin endpoints (enrollment approve/reject, node/zone delete): `-H "Authorization: Bearer $ADMIN_KEY"` — must currently match `API_KEY`, see above
 
 ### Clean rebuild
 

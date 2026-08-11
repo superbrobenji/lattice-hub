@@ -16,7 +16,7 @@ func macKey(mac []byte) string {
 
 func envelope(n *VirtualNode) *mesh.MeshMessage {
 	return &mesh.MeshMessage{
-		ProtoVersion:     3,
+		ProtoVersion:     5,
 		OriginMacAddress: append([]byte(nil), n.MAC[:]...),
 		HopCount:         uint32(len(n.RoutePath) + 1),
 	}
@@ -38,7 +38,7 @@ func healthMsg(n *VirtualNode) *mesh.MeshMessage {
 func routeReportMsg(n *VirtualNode) *mesh.MeshMessage {
 	m := envelope(n)
 	m.MessageType = mesh.MessageTypeRouteReport
-	// Protocol v3: relay path is in header fields, not the Data payload.
+	// Protocol v4: relay path is in header fields, not the Data payload.
 	rl := uint32(len(n.RoutePath))
 	m.RouteLen = &rl
 	if len(n.RoutePath) > 0 {
