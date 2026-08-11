@@ -2,7 +2,7 @@
 // versions:
 // 	protoc-gen-go v1.36.11
 // 	protoc        v7.35.1
-// source: mesh/mesh.proto
+// source: mesh.proto
 
 package mesh
 
@@ -22,30 +22,32 @@ const (
 )
 
 type MeshMessage struct {
-	state              protoimpl.MessageState `protogen:"open.v1"`
-	MessageType        uint32                 `protobuf:"varint,1,opt,name=messageType,proto3" json:"messageType,omitempty"`            // 0=ADAPTER_DATA, 1=MASTER_BEACON, 2=ENROLLMENT, 3=SERIAL_CMD_BROADCAST (server→device), 4=JOIN_ACK (server→device)
-	DataType           int32                  `protobuf:"zigzag32,2,opt,name=dataType,proto3" json:"dataType,omitempty"`                // zigzag: -1=UNKNOWN, 0=PIR, 1=WIFI, 2=LED, 3=SERIAL
-	OriginMacAddress   []byte                 `protobuf:"bytes,3,opt,name=originMacAddress,proto3" json:"originMacAddress,omitempty"`   // 6 bytes
-	TargetMacAddress   []byte                 `protobuf:"bytes,4,opt,name=targetMacAddress,proto3" json:"targetMacAddress,omitempty"`   // 6 bytes
-	LastHopMacAddress  []byte                 `protobuf:"bytes,5,opt,name=lastHopMacAddress,proto3" json:"lastHopMacAddress,omitempty"` // 6 bytes
-	Data               []byte                 `protobuf:"bytes,6,opt,name=data,proto3" json:"data,omitempty"`                           // up to 64 bytes
-	HopCount           uint32                 `protobuf:"varint,7,opt,name=hopCount,proto3" json:"hopCount,omitempty"`
-	EpochNum           uint32                 `protobuf:"varint,8,opt,name=epochNum,proto3" json:"epochNum,omitempty"`                           // sender boot epoch (was field 9 — CORRECTED to match firmware)
-	SeqNum             uint32                 `protobuf:"varint,9,opt,name=seqNum,proto3" json:"seqNum,omitempty"`                               // per-boot sequence counter (was field 10 — CORRECTED)
-	ProtoVersion       uint32                 `protobuf:"varint,10,opt,name=protoVersion,proto3" json:"protoVersion,omitempty"`                  // must be 1 for v1 messages (was field 8 — CORRECTED)
-	PublicKey          []byte                 `protobuf:"bytes,11,opt,name=public_key,json=publicKey,proto3" json:"public_key,omitempty"`        // enrollment/join_ack: 32-byte Curve25519 public key
-	RouteLen           *uint32                `protobuf:"varint,12,opt,name=routeLen,proto3,oneof" json:"routeLen,omitempty"`                    // v3: relay path length (header field)
-	RoutePath          []byte                 `protobuf:"bytes,13,opt,name=routePath,proto3,oneof" json:"routePath,omitempty"`                   // v3: relay MACs — routeLen × 6 bytes, forward order
-	AuthTag            []byte                 `protobuf:"bytes,14,opt,name=authTag,proto3,oneof" json:"authTag,omitempty"`                       // v3: ChaCha20-Poly1305 tag over data[64] (firmware-only)
-	SecondaryMasterMac []byte                 `protobuf:"bytes,15,opt,name=secondaryMasterMac,proto3,oneof" json:"secondaryMasterMac,omitempty"` // v3: dual-master: secondary master MAC in JOIN_ACK (Phase 4)
-	SecondaryPublicKey []byte                 `protobuf:"bytes,16,opt,name=secondaryPublicKey,proto3,oneof" json:"secondaryPublicKey,omitempty"` // v3: dual-master: secondary master Curve25519 pubkey (Phase 4)
-	unknownFields      protoimpl.UnknownFields
-	sizeCache          protoimpl.SizeCache
+	state             protoimpl.MessageState `protogen:"open.v1"`
+	MessageType       uint32                 `protobuf:"varint,1,opt,name=messageType,proto3" json:"messageType,omitempty"`            // 0=ADAPTER_DATA, 1=MASTER_BEACON, 2=ENROLLMENT, 3=SERIAL_CMD_BROADCAST (server→device), 4=JOIN_ACK (server→device)
+	DataType          int32                  `protobuf:"zigzag32,2,opt,name=dataType,proto3" json:"dataType,omitempty"`                // zigzag: -1=UNKNOWN, 0=PIR, 1=WIFI, 2=LED, 3=SERIAL
+	OriginMacAddress  []byte                 `protobuf:"bytes,3,opt,name=originMacAddress,proto3" json:"originMacAddress,omitempty"`   // 6 bytes
+	TargetMacAddress  []byte                 `protobuf:"bytes,4,opt,name=targetMacAddress,proto3" json:"targetMacAddress,omitempty"`   // 6 bytes
+	LastHopMacAddress []byte                 `protobuf:"bytes,5,opt,name=lastHopMacAddress,proto3" json:"lastHopMacAddress,omitempty"` // 6 bytes
+	Data              []byte                 `protobuf:"bytes,6,opt,name=data,proto3" json:"data,omitempty"`                           // up to 64 bytes
+	HopCount          uint32                 `protobuf:"varint,7,opt,name=hopCount,proto3" json:"hopCount,omitempty"`
+	EpochNum          uint32                 `protobuf:"varint,8,opt,name=epochNum,proto3" json:"epochNum,omitempty"`                    // sender boot epoch (was field 9 — CORRECTED to match firmware)
+	SeqNum            uint32                 `protobuf:"varint,9,opt,name=seqNum,proto3" json:"seqNum,omitempty"`                        // per-boot sequence counter (was field 10 — CORRECTED)
+	ProtoVersion      uint32                 `protobuf:"varint,10,opt,name=protoVersion,proto3" json:"protoVersion,omitempty"`           // must be 1 for v1 messages (was field 8 — CORRECTED)
+	PublicKey         []byte                 `protobuf:"bytes,11,opt,name=public_key,json=publicKey,proto3" json:"public_key,omitempty"` // enrollment/join_ack: 32-byte Curve25519 public key
+	RouteLen          *uint32                `protobuf:"varint,12,opt,name=routeLen,proto3,oneof" json:"routeLen,omitempty"`             // v3: relay path length (header field)
+	RoutePath         []byte                 `protobuf:"bytes,13,opt,name=routePath,proto3,oneof" json:"routePath,omitempty"`            // v3: relay MACs — routeLen × 6 bytes, forward order (48 = MAX_HOPS(8) × 6, v6)
+	AuthTag           []byte                 `protobuf:"bytes,14,opt,name=authTag,proto3,oneof" json:"authTag,omitempty"`                // v3: ChaCha20-Poly1305 tag over data[64] (firmware-only)
+	// v6 (wire shrink): fields 15/16 (secondaryMasterMac, secondaryPublicKey) removed.
+	// JOIN_ACK now packs secondary master identity into data[4..42] instead — see
+	// ApproveEnrollment. Field numbers 15/16 are retired, not reused.
+	AuthPath      []byte `protobuf:"bytes,17,opt,name=authPath,proto3,oneof" json:"authPath,omitempty"` // v4: chained HMAC-SHA256-64 over route_path (8 bytes), firmware-authored, master-verified; opaque to hub
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *MeshMessage) Reset() {
 	*x = MeshMessage{}
-	mi := &file_mesh_mesh_proto_msgTypes[0]
+	mi := &file_mesh_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -57,7 +59,7 @@ func (x *MeshMessage) String() string {
 func (*MeshMessage) ProtoMessage() {}
 
 func (x *MeshMessage) ProtoReflect() protoreflect.Message {
-	mi := &file_mesh_mesh_proto_msgTypes[0]
+	mi := &file_mesh_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -70,7 +72,7 @@ func (x *MeshMessage) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MeshMessage.ProtoReflect.Descriptor instead.
 func (*MeshMessage) Descriptor() ([]byte, []int) {
-	return file_mesh_mesh_proto_rawDescGZIP(), []int{0}
+	return file_mesh_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *MeshMessage) GetMessageType() uint32 {
@@ -171,25 +173,19 @@ func (x *MeshMessage) GetAuthTag() []byte {
 	return nil
 }
 
-func (x *MeshMessage) GetSecondaryMasterMac() []byte {
+func (x *MeshMessage) GetAuthPath() []byte {
 	if x != nil {
-		return x.SecondaryMasterMac
+		return x.AuthPath
 	}
 	return nil
 }
 
-func (x *MeshMessage) GetSecondaryPublicKey() []byte {
-	if x != nil {
-		return x.SecondaryPublicKey
-	}
-	return nil
-}
+var File_mesh_proto protoreflect.FileDescriptor
 
-var File_mesh_mesh_proto protoreflect.FileDescriptor
-
-const file_mesh_mesh_proto_rawDesc = "" +
+const file_mesh_proto_rawDesc = "" +
 	"\n" +
-	"\x0fmesh/mesh.proto\x12\x04mesh\"\x9a\x05\n" +
+	"\n" +
+	"mesh.proto\x12\x04mesh\"\xb0\x04\n" +
 	"\vMeshMessage\x12 \n" +
 	"\vmessageType\x18\x01 \x01(\rR\vmessageType\x12\x1a\n" +
 	"\bdataType\x18\x02 \x01(\x11R\bdataType\x12*\n" +
@@ -206,34 +202,32 @@ const file_mesh_mesh_proto_rawDesc = "" +
 	"public_key\x18\v \x01(\fR\tpublicKey\x12\x1f\n" +
 	"\brouteLen\x18\f \x01(\rH\x00R\brouteLen\x88\x01\x01\x12!\n" +
 	"\troutePath\x18\r \x01(\fH\x01R\troutePath\x88\x01\x01\x12\x1d\n" +
-	"\aauthTag\x18\x0e \x01(\fH\x02R\aauthTag\x88\x01\x01\x123\n" +
-	"\x12secondaryMasterMac\x18\x0f \x01(\fH\x03R\x12secondaryMasterMac\x88\x01\x01\x123\n" +
-	"\x12secondaryPublicKey\x18\x10 \x01(\fH\x04R\x12secondaryPublicKey\x88\x01\x01B\v\n" +
+	"\aauthTag\x18\x0e \x01(\fH\x02R\aauthTag\x88\x01\x01\x12\x1f\n" +
+	"\bauthPath\x18\x11 \x01(\fH\x03R\bauthPath\x88\x01\x01B\v\n" +
 	"\t_routeLenB\f\n" +
 	"\n" +
 	"_routePathB\n" +
 	"\n" +
-	"\b_authTagB\x15\n" +
-	"\x13_secondaryMasterMacB\x15\n" +
-	"\x13_secondaryPublicKeyB,Z*github.com/superbrobenji/motionServer/meshb\x06proto3"
+	"\b_authTagB\v\n" +
+	"\t_authPathB,Z*github.com/superbrobenji/motionServer/meshb\x06proto3"
 
 var (
-	file_mesh_mesh_proto_rawDescOnce sync.Once
-	file_mesh_mesh_proto_rawDescData []byte
+	file_mesh_proto_rawDescOnce sync.Once
+	file_mesh_proto_rawDescData []byte
 )
 
-func file_mesh_mesh_proto_rawDescGZIP() []byte {
-	file_mesh_mesh_proto_rawDescOnce.Do(func() {
-		file_mesh_mesh_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_mesh_mesh_proto_rawDesc), len(file_mesh_mesh_proto_rawDesc)))
+func file_mesh_proto_rawDescGZIP() []byte {
+	file_mesh_proto_rawDescOnce.Do(func() {
+		file_mesh_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_mesh_proto_rawDesc), len(file_mesh_proto_rawDesc)))
 	})
-	return file_mesh_mesh_proto_rawDescData
+	return file_mesh_proto_rawDescData
 }
 
-var file_mesh_mesh_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
-var file_mesh_mesh_proto_goTypes = []any{
+var file_mesh_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
+var file_mesh_proto_goTypes = []any{
 	(*MeshMessage)(nil), // 0: mesh.MeshMessage
 }
-var file_mesh_mesh_proto_depIdxs = []int32{
+var file_mesh_proto_depIdxs = []int32{
 	0, // [0:0] is the sub-list for method output_type
 	0, // [0:0] is the sub-list for method input_type
 	0, // [0:0] is the sub-list for extension type_name
@@ -241,27 +235,27 @@ var file_mesh_mesh_proto_depIdxs = []int32{
 	0, // [0:0] is the sub-list for field type_name
 }
 
-func init() { file_mesh_mesh_proto_init() }
-func file_mesh_mesh_proto_init() {
-	if File_mesh_mesh_proto != nil {
+func init() { file_mesh_proto_init() }
+func file_mesh_proto_init() {
+	if File_mesh_proto != nil {
 		return
 	}
-	file_mesh_mesh_proto_msgTypes[0].OneofWrappers = []any{}
+	file_mesh_proto_msgTypes[0].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_mesh_mesh_proto_rawDesc), len(file_mesh_mesh_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_mesh_proto_rawDesc), len(file_mesh_proto_rawDesc)),
 			NumEnums:      0,
 			NumMessages:   1,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
-		GoTypes:           file_mesh_mesh_proto_goTypes,
-		DependencyIndexes: file_mesh_mesh_proto_depIdxs,
-		MessageInfos:      file_mesh_mesh_proto_msgTypes,
+		GoTypes:           file_mesh_proto_goTypes,
+		DependencyIndexes: file_mesh_proto_depIdxs,
+		MessageInfos:      file_mesh_proto_msgTypes,
 	}.Build()
-	File_mesh_mesh_proto = out.File
-	file_mesh_mesh_proto_goTypes = nil
-	file_mesh_mesh_proto_depIdxs = nil
+	File_mesh_proto = out.File
+	file_mesh_proto_goTypes = nil
+	file_mesh_proto_depIdxs = nil
 }
