@@ -20,7 +20,9 @@ Server-side counterpart to the [Lattice ESP32 firmware](https://github.com/super
         │
         └──► HTTP API :8080
                 │
-                └──► Dashboard (React Router :3000)
+                ├──► Dashboard (React Router :3000) — admin web UI
+                │
+                └──► Artist Portal (React Router :3001) — artist workspace UI
 ```
 
 ## Ecosystem
@@ -106,6 +108,7 @@ Both the dashboard and artist-portal are covered.
 |----------|----------|
 | [server/orchestrator/README.md](server/orchestrator/README.md) | Protocol spec, API reference, configuration, Docker deployment |
 | [server/dashboard/README.md](server/dashboard/README.md) | Dashboard setup, environment variables, development workflow |
+| [server/artist-portal/README.md](server/artist-portal/README.md) | Artist Portal setup, environment variables, development workflow |
 | [server/QUICK_START.md](server/QUICK_START.md) | Docker setup, USB device passthrough, troubleshooting |
 | [docs/getting_started.md](docs/getting_started.md) | Non-technical, zero-to-running walkthrough — Docker install through first node enrollment |
 | [docs/using_the_hub.md](docs/using_the_hub.md) | Plain-language guide to the Dashboard and Artist Portal web UIs |
