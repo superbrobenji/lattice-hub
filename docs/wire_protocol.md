@@ -75,7 +75,7 @@ passes):
 | `ADAPTER_DATA` | 0 | `handleAdapterData` → dispatches again on `DataType` (`AdapterTypeSerial` → `handleSerialData`, which switches on the opcode byte at `Data[0]`; `AdapterTypePIR` → `handlePIRData`; anything else is logged at `Debug` and ignored) |
 | `MASTER_BEACON` | 1 | `handleMasterBeacon` — logs at `Debug` only, no state change |
 | `ENROLLMENT` | 2 | `handleEnrollmentRequest` (see below) |
-| `SERIAL_CMD_BROADCAST` | 3 | no case in the switch — falls to `default`, logged as `"Unknown message type"`. The hub only ever *sends* this type (`OP_NODE_ID_SET`, `OP_CONFIG_SET`, `SendNodeData`); it has no inbound handling. |
+| `SERIAL_CMD_BROADCAST` | 3 | no case in the switch — falls to `default`, logged as `"Unknown message type"`. The hub only ever *sends* this type — `OP_NODE_ID_SET` (built inline in `ApproveEnrollment`) and `SendNodeData`/`BuildBroadcastMessage`. **Not** `OP_CONFIG_SET`: `BuildConfigSetMessage` (`message_builder.go:17-35`) sets `MessageType: MessageTypeAdapterData` (type 0), so `OP_CONFIG_SET` frames — including the hotswap one — travel as `ADAPTER_DATA`, not `SERIAL_CMD_BROADCAST`. This type has no inbound handling. |
 | `JOIN_ACK` | 4 | logged and ignored — see above |
 | `ROUTE_REPORT` | 5 | `handleRouteReport` |
 | anything else | — | `slog.Warn("Unknown message type", "type", msg.MessageType)` |
