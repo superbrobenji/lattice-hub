@@ -148,6 +148,55 @@ paths:
         "501":
           description: Not yet implemented
 
+  /api/v1/nodes/{id}/command/{commandId}:
+    get:
+      summary: Poll command acknowledgement status
+      tags: [nodes]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 255
+        - name: commandId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Command status
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/APIResponse"
+                  - properties:
+                      data:
+                        type: object
+                        properties:
+                          commandId:
+                            type: string
+                            format: uuid
+                          nodeId:
+                            type: integer
+                          action:
+                            type: string
+                          status:
+                            type: string
+                            enum: [pending, acked, timeout]
+                          sentAt:
+                            type: integer
+                            description: Unix timestamp
+                          ackedAt:
+                            type: integer
+                            description: Unix timestamp — present only once the command has been acked
+        "404":
+          $ref: "#/components/responses/NotFound"
+
   /api/v1/zones:
     get:
       summary: List all zones
@@ -233,6 +282,24 @@ paths:
       responses:
         "200":
           description: Pending enrollment list
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/APIResponse"
+                  - properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/Enrollment"
+
+  /api/v1/enrollments:
+    get:
+      summary: List all enrollments (all statuses)
+      tags: [enrollments]
+      responses:
+        "200":
+          description: Full enrollment list
           content:
             application/json:
               schema:
