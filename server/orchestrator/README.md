@@ -216,6 +216,9 @@ discarded: the server emits `slog.Warn("Unsupported proto version —
 dropping", "version", msg.ProtoVersion, "origin", ...)` and returns without
 processing the message further. No error is sent back over the wire.
 
+See [docs/wire_protocol.md](../../docs/wire_protocol.md) for the full deep-dive, including the
+enrollment handshake sequence.
+
 ### Message Types
 
 | Type | Value | Description |
@@ -247,6 +250,9 @@ the top-level `SecondaryMasterMac`/`SecondaryPublicKey` proto fields (field
 numbers 15/16 on the message envelope) were retired — dual-master identity
 now travels exclusively inside this JOIN_ACK payload instead of separate
 envelope fields.
+
+See [docs/wire_protocol.md](../../docs/wire_protocol.md) for the full deep-dive on JOIN_ACK and
+the rest of the wire protocol.
 
 ### Adapter Types
 
@@ -299,7 +305,7 @@ docker compose down
 
 ### Prerequisites
 
-- Go 1.23+
+- Go 1.25+
 - Docker (for Kafka dependency)
 
 ### Build and test

@@ -34,6 +34,14 @@ those require a key, sent along with the request like a password:
   rejecting a new device, and permanently removing a device. If no separate
   admin key has been set up, the API key works for these too.
 
+  **Heads up:** in the standard Docker Compose setup this repo ships, a
+  separate admin key doesn't actually create a separate tier today — the
+  server never receives the admin key's value in that configuration, so it
+  quietly falls back to accepting the regular API key for admin actions too.
+  Set both keys to the same value for now to avoid confusing 401 errors; see
+  [lattice-hub#122](https://github.com/superbrobenji/lattice-hub/issues/122)
+  for the full explanation.
+
 Every reply comes back as a small block of structured text (JSON) with a
 `success` field that's `true` or `false`, so you (or whatever software you're
 using) can tell at a glance whether the request worked. When something goes

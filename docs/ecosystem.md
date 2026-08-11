@@ -47,7 +47,7 @@ This is not a hypothetical — it has already happened twice in this repo's hist
 - `#115` bumped to `v0.5.0` for protocol v4 (flag-day).
 - `#117` bumped to `v0.6.0` for protocol v5, alongside a JOIN_ACK wire shrink (flag-day).
 
-The mechanism (see `docs/wire_protocol.md` for the full wire-format writeup): every `MeshMessage`
+The mechanism (see [wire_protocol.md](wire_protocol.md) for the full wire-format writeup): every `MeshMessage`
 carries a `ProtoVersion` field. `server/orchestrator/mesh/server.go` checks incoming messages
 against the version this build was compiled to expect — currently hardcoded to `5` in multiple
 places in `mesh/server.go` and `mesh/message_builder.go`. A mismatch:
