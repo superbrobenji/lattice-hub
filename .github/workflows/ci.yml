@@ -247,4 +247,8 @@ jobs:
           retention-days: 7
       - name: Stack logs on failure
         if: failure()
-        run: API_KEY=dev ADMIN_KEY=dev docker compose -f server/docker-compose.yml -f server/docker-compose.stub.yml -f server/docker-compose.stub.seed.yml logs orchestrator mesh-sim
+        # Capture every service, not just orchestrator/mesh-sim — a container
+        # that crashes at startup (e.g. dashboard/artist-portal) prints nothing
+        # to `docker compose up -d`'s own output, so without this the failure
+        # looks like a silent hang instead of the crash it actually is.
+        run: API_KEY=dev ADMIN_KEY=dev docker compose -f server/docker-compose.yml -f server/docker-compose.stub.yml -f server/docker-compose.stub.seed.yml logs
