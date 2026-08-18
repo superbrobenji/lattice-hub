@@ -31,6 +31,20 @@ updates:
     labels:
       - dependencies
       - npm
+    groups:
+      react:
+        # react and react-dom must stay on the exact same version (React 19
+        # throws "Incompatible React versions" and the SSR server hangs/crashes
+        # if they drift apart) — keep them in one atomic PR.
+        patterns:
+          - "react"
+          - "react-dom"
+          - "@types/react"
+          - "@types/react-dom"
+      react-router:
+        patterns:
+          - "react-router*"
+          - "@react-router/*"
 
   - package-ecosystem: npm
     directory: /server/artist-portal
@@ -39,3 +53,15 @@ updates:
     labels:
       - dependencies
       - npm
+    groups:
+      react:
+        # See server/dashboard block above — same lockstep requirement applies.
+        patterns:
+          - "react"
+          - "react-dom"
+          - "@types/react"
+          - "@types/react-dom"
+      react-router:
+        patterns:
+          - "react-router*"
+          - "@react-router/*"
