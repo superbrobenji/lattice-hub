@@ -2,6 +2,7 @@ package nodeauth
 
 import (
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -36,12 +37,36 @@ func NewRegistry() *Registry {
 	return &Registry{nodes: make(map[string]*NodeAuth)}
 }
 
+// ErrAlreadyApprovedSameKey is returned by AddPending when an already-approved
+// node re-sends a JOIN_REQUEST carrying the exact key it was approved with —
+// e.g. it never received (or lost) its original JOIN_ACK. Proof of possession
+// of the already-trusted key is the same trust decision an admin already made,
+// so the caller should resend the JOIN_ACK directly rather than queuing a new
+// pending request (see #178).
+var ErrAlreadyApprovedSameKey = errors.New("node already approved with matching key")
+
 func (r *Registry) AddPending(mac [6]byte, pubKey [32]byte) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	key := macToString(mac)
 	if existing, ok := r.nodes[key]; ok && existing.Status == TrustApproved {
-		return fmt.Errorf("node %s already approved", key)
+		if existing.PublicKey == pubKey {
+			existing.ReceivedAt = time.Now()
+			return ErrAlreadyApprovedSameKey
+		}
+		// Key changed under an already-approved MAC (e.g. reflash regenerated
+		// the node's Curve25519 keypair in NVS) — the prior trust decision was
+		// made for a key that no longer exists, so it cannot be honored for
+		// this one. Re-key and drop back to pending rather than permanently
+		// wedging: every future JOIN_ACK would otherwise keep embedding the
+		// stale key's fingerprint, which this node's current key can never
+		// match (#178). This surfaces as a normal pending enrollment awaiting
+		// admin approval, instead of a silent dead end.
+		existing.PublicKey = pubKey
+		existing.Status = TrustPending
+		existing.ReceivedAt = time.Now()
+		existing.ApprovedAt = time.Time{}
+		return nil
 	}
 	r.nodes[key] = &NodeAuth{
 		MAC:        mac,

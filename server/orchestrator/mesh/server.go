@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"sync"
@@ -538,6 +539,19 @@ func (ms *MeshServer) handleEnrollmentRequest(msg *MeshMessage) error {
 	slog.Info("Enrollment request received", "mac", macStr, "pubkeyPrefix", fmt.Sprintf("%x", pubKey[:4]))
 
 	if err := ms.authRegistry.AddPending(mac, pubKey); err != nil {
+		if errors.Is(err, nodeauth.ErrAlreadyApprovedSameKey) {
+			// Self-heal (#178): the node is already trusted with this exact
+			// key — it's re-asking because it never received (or lost) its
+			// original JOIN_ACK. Resend directly instead of leaving it stuck
+			// retrying forever with no way to complete enrollment.
+			slog.Info("Already-approved node re-requested with matching key — resending JOIN_ACK",
+				"mac", macStr)
+			if resendErr := ms.resendJoinAck(macStr); resendErr != nil {
+				slog.Warn("Failed to resend JOIN_ACK", "mac", macStr, "error", resendErr)
+				return resendErr
+			}
+			return nil
+		}
 		slog.Warn("Failed to add pending enrollment", "mac", macStr, "error", err)
 		return err
 	}
@@ -785,6 +799,26 @@ func (ms *MeshServer) ApproveEnrollment(macStr string, params ApprovalParams) er
 		return ms.authRegistry.Persist(ms.authPath)
 	}
 	return nil
+}
+
+// resendJoinAck re-sends the JOIN_ACK (and NODE_ID_SET/CONFIG_SET) sequence
+// for a MAC that is already TrustApproved, reusing its existing node-registry
+// identity so the resend doesn't clobber a previously assigned NodeID/Name/
+// Zone/AdapterType. Used by the AddPending self-heal path (#178) when an
+// already-approved node re-requests enrollment with a matching key.
+func (ms *MeshServer) resendJoinAck(macStr string) error {
+	mac, err := nodeauth.ParseMAC(macStr)
+	if err != nil {
+		return err
+	}
+	params := ApprovalParams{}
+	if node, ok := ms.nodeRegistry.GetNode(mac[:]); ok {
+		params.NodeID = node.NodeID
+		params.Name = node.Name
+		params.Zone = node.Zone
+		params.AdapterTypeStr = adapterTypeToString(node.AdapterType)
+	}
+	return ms.ApproveEnrollment(macStr, params)
 }
 
 // RejectEnrollment rejects a pending enrollment request and notifies the master.

@@ -7,6 +7,16 @@ updates:
     labels:
       - dependencies
       - ci
+    groups:
+      codeql-action:
+        # init/autobuild/analyze must land on the same version — CodeQL's
+        # init step stamps a config file with its own version, and
+        # autobuild/analyze refuse to run against a config from a
+        # different version ("Loaded a configuration file for version
+        # X, but running version Y"). Same lockstep problem as the react
+        # group below — one atomic PR avoids the skew.
+        patterns:
+          - "github/codeql-action/*"
 
   - package-ecosystem: gomod
     directory: /server/orchestrator
