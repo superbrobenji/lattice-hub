@@ -53,12 +53,11 @@ cd server
 cp env.example .env
 ```
 
-Set (generating `API_KEY`/`ADMIN_KEY` with `openssl rand -hex 32`, and using the **same** value
-for both — see `env.example`'s comment on the `ADMIN_KEY` wiring gap, lattice-hub#122):
+Set (generating `API_KEY` and `ADMIN_KEY` separately with `openssl rand -hex 32`):
 
 ```
 API_KEY=<random hex>
-ADMIN_KEY=<same random hex>
+ADMIN_KEY=<second random hex>
 MASTER_KEY_PATH=data/masterkey.json
 MASTER_MAC=<MAC from Step 1>
 ```

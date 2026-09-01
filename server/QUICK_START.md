@@ -23,7 +23,7 @@ API_KEY=<generate with: openssl rand -hex 32>
 ADMIN_KEY=<generate with: openssl rand -hex 32>
 ```
 
-Both keys ship as placeholders in `env.example` and must be replaced — Compose refuses to start without them. `ADMIN_KEY` guards the admin tier (enrollment approve/reject and hard deletes). **Set `API_KEY` and `ADMIN_KEY` to the same value.** The orchestrator container doesn't currently receive `ADMIN_KEY` (see `docker-compose.yml`'s `orchestrator` service `environment:` block) and falls back to checking admin routes against `API_KEY` instead — if the two values differ, admin endpoints return 401 ([lattice-hub#122](https://github.com/superbrobenji/lattice-hub/issues/122)). All other variables have working defaults for local development.
+Both keys ship as placeholders in `env.example` and must be replaced — Compose refuses to start without them. `ADMIN_KEY` guards the admin tier (enrollment approve/reject, hard deletes, Dashboard sign-in) and may differ from `API_KEY`; every container receives both. All other variables have working defaults for local development.
 
 ## 2. Start the Stack
 
@@ -197,15 +197,14 @@ grep API_KEY .env
 grep ADMIN_KEY .env
 ```
 
-Make sure `API_KEY` and `ADMIN_KEY` are set to the **same value**. The orchestrator container
-doesn't currently receive `ADMIN_KEY` and falls back to checking admin routes against `API_KEY`
-instead — if the two differ, every admin endpoint returns 401 even though the request itself is
-correct ([lattice-hub#122](https://github.com/superbrobenji/lattice-hub/issues/122)).
+If you changed either key in `.env` while the stack was already running, run `docker compose up -d`
+again — a plain `restart` keeps the old environment, so the containers keep checking against the
+old keys.
 
 Ensure the correct header is used:
 - Public endpoints (`/health`, `/metrics`, and v1 reads like `/api/v1/status`, `/api/v1/nodes`, `/api/v1/events`): no auth required
 - Protected endpoints: `-H "Authorization: Bearer $API_KEY"`
-- Admin endpoints (enrollment approve/reject, node/zone delete): `-H "Authorization: Bearer $ADMIN_KEY"` — must currently match `API_KEY`, see above
+- Admin endpoints (enrollment approve/reject, node/zone delete): `-H "Authorization: Bearer $ADMIN_KEY"`
 
 ### Clean rebuild
 

@@ -91,16 +91,6 @@ Endpoints are split into three tiers:
   `DELETE /api/v1/zones/{id}`. If `ADMIN_KEY` is unset, these routes fall back
   to the API-key tier (a startup warning is logged).
 
-> **Caveat — `ADMIN_KEY` is not wired up in the default compose setup.**
-> `server/docker-compose.yml`'s `orchestrator` service `environment:` block
-> does not pass `ADMIN_KEY` through (unlike the `dashboard`, `artist-portal`,
-> and `sidecar` services, which all require it). Since the orchestrator falls
-> back to the `API_KEY` tier whenever `ADMIN_KEY` is unset, a stock
-> `docker compose up` deployment gives any `API_KEY` holder access to the
-> admin routes too — there is no real tier separation until `ADMIN_KEY` is
-> added to the orchestrator's environment. Tracked as
-> [lattice-hub#122](https://github.com/superbrobenji/lattice-hub/issues/122).
-
 ### Public endpoints (no auth)
 
 | Method | Path | Description |
