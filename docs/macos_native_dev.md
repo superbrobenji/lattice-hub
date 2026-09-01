@@ -77,33 +77,32 @@ Kafka will fail.
 
 ## Step 4: Start the Dockerized services (minus orchestrator)
 
-```bash
-docker compose up -d
-```
-
-The dockerized `orchestrator` container **will fail to start** with something like:
-```
-Error response from daemon: error gathering device information while adding custom device "/dev/ttyUSB0": no such file or directory
-```
-That's expected — it's the exact limitation this doc works around. Stop it so it doesn't keep
-retrying:
+From `server/`:
 
 ```bash
-docker compose stop orchestrator
+docker compose -f docker-compose.yml -f docker-compose.native.yml up -d
 ```
 
-Confirm the rest came up:
+(`make native` from the repository root runs the same command.) The
+`docker-compose.native.yml` overlay does three things the plain stack can't on macOS:
+
+- parks the `orchestrator` container behind a Compose profile, so `up` skips it instead of
+  failing with `error gathering device information while adding custom device "/dev/ttyUSB0"`;
+- drops `dashboard`'s `depends_on: orchestrator: condition: service_healthy`, which would
+  otherwise leave it stuck in `Created` forever;
+- adds `extra_hosts: orchestrator:host-gateway` to `dashboard` and `artist-portal`, so the
+  `orchestrator` hostname their `ORCHESTRATOR_URL` already uses resolves to your Mac, where the
+  native process from Step 5 listens on `:8080`.
+
+Confirm it came up:
 
 ```bash
 docker compose ps
 ```
 
-You should see `kafka` (healthy), `sidecar`, `artist-portal` running. `dashboard` will sit in
-`Created` — its `depends_on: orchestrator: condition: service_healthy` waits on the container you
-just stopped. It (and `artist-portal`'s ability to actually *reach* the orchestrator, since its
-`ORCHESTRATOR_URL` is hardcoded to the Docker-network hostname `orchestrator`) won't work until
-you either point them at the native orchestrator via `host.docker.internal` or accept that the
-web UIs aren't available in this workflow — the REST API itself works fine either way.
+You should see `kafka` (healthy), `sidecar`, `dashboard` and `artist-portal` running, and no
+`orchestrator` container at all. The web UIs answer once Step 5's process is up; until then the
+Dashboard pages that query the orchestrator (Nodes, Enrollments) error out, which is expected.
 
 ## Step 5: Run the orchestrator natively
 
@@ -138,7 +137,8 @@ curl -s http://localhost:8080/api/v1/status
 
 Once the board is flashed as a master and connected (see the `lattice-nodes` doc), this reports
 `mesh.masterOnline: true` and, over time, incrementing `uptime` in the orchestrator's logged health
-reports.
+reports. The Dashboard at `http://localhost:3000` (sign in with `ADMIN_KEY`) and the Artist Portal
+at `http://localhost:3001` now reach the native orchestrator through the overlay from Step 4.
 
 ## Dual-master setup
 
