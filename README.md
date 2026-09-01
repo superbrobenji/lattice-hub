@@ -79,7 +79,7 @@ See [server/QUICK_START.md](server/QUICK_START.md) for USB serial device setup, 
 
 **On macOS**, Docker Desktop can't pass a host USB-serial device into the `orchestrator`
 container at all, so bringing up a real ESP32 master needs a different path — running the
-orchestrator natively while the rest of the stack stays in Docker. See
+orchestrator natively while the rest of the stack stays in Docker (`make native`). See
 [docs/macos_native_dev.md](docs/macos_native_dev.md).
 
 ## End-to-end tests
