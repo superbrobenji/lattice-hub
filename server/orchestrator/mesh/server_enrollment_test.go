@@ -114,6 +114,107 @@ func TestApproveEnrollment_SendsJoinAckWithCorrectFields(t *testing.T) {
 	}
 }
 
+// TestHandleEnrollmentRequest_AlreadyApprovedSameKey_ResendsJoinAck verifies
+// the #178 self-heal: a node that is already TrustApproved re-sending a
+// JOIN_REQUEST with the exact key it was approved with gets a fresh JOIN_ACK
+// (reusing its existing NodeID/Name/Zone), instead of the request being
+// silently dropped with no path to ever complete enrollment.
+func TestHandleEnrollmentRequest_AlreadyApprovedSameKey_ResendsJoinAck(t *testing.T) {
+	ms := newTestMeshServer(t)
+	mockPort := NewMockSerialPort()
+	ms.serialComm = NewSerialComm(mockPort)
+
+	macStr, nodePubKey := enrollTestNode(t, ms)
+	if err := ms.ApproveEnrollment(macStr, ApprovalParams{NodeID: 9, Name: "hallway", Zone: "east"}); err != nil {
+		t.Fatalf("initial ApproveEnrollment: %v", err)
+	}
+	// Consume the frames from the initial approval before re-requesting.
+	_ = decodeWrittenFrame(t, mockPort) // JOIN_ACK
+	_ = decodeWrittenFrame(t, mockPort) // OP_NODE_ID_SET
+
+	mac := [6]byte{0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF}
+	msg := &MeshMessage{
+		OriginMacAddress: mac[:],
+		PublicKey:        nodePubKey[:],
+	}
+	if err := ms.handleEnrollmentRequest(msg); err != nil {
+		t.Fatalf("handleEnrollmentRequest re-request with same key: %v", err)
+	}
+
+	joinAck := decodeWrittenFrame(t, mockPort)
+	if joinAck.MessageType != 4 {
+		t.Errorf("resent MessageType = %d, want 4 (JOIN_ACK)", joinAck.MessageType)
+	}
+	if !bytes.Equal(joinAck.Data[0:4], nodePubKey[:4]) {
+		t.Errorf("resent Data[0:4] = %x, want %x (node pubkey fingerprint)", joinAck.Data[0:4], nodePubKey[:4])
+	}
+
+	nodeIdMsg := decodeWrittenFrame(t, mockPort)
+	if nodeIdMsg.Data[0] != byte(OpNodeIdSet) {
+		t.Errorf("resent 2nd frame opcode = 0x%02x, want OP_NODE_ID_SET", nodeIdMsg.Data[0])
+	}
+	if nodeIdMsg.Data[7] != 9 {
+		t.Errorf("resent NodeID = %d, want 9 (preserved from original approval)", nodeIdMsg.Data[7])
+	}
+
+	// Node must remain approved with a single registry entry, not duplicated.
+	if !ms.authRegistry.IsApproved(mac) {
+		t.Error("node should still be TrustApproved after same-key re-request")
+	}
+	node, ok := ms.nodeRegistry.GetNode(mac[:])
+	if !ok {
+		t.Fatal("node registry entry should still exist")
+	}
+	if node.Name != "hallway" || node.Zone != "east" {
+		t.Errorf("resend should preserve Name/Zone, got Name=%q Zone=%q", node.Name, node.Zone)
+	}
+}
+
+// TestHandleEnrollmentRequest_AlreadyApprovedDifferentKey_BecomesPending
+// verifies the #178 re-key self-heal: a re-request from an already-approved
+// MAC carrying a DIFFERENT key (e.g. after a reflash regenerated its keypair)
+// must NOT keep emitting JOIN_ACKs fingerprinted against the stale key —
+// instead it becomes a fresh pending enrollment awaiting admin approval.
+func TestHandleEnrollmentRequest_AlreadyApprovedDifferentKey_BecomesPending(t *testing.T) {
+	ms := newTestMeshServer(t)
+	mockPort := NewMockSerialPort()
+	ms.serialComm = NewSerialComm(mockPort)
+
+	macStr, _ := enrollTestNode(t, ms)
+	if err := ms.ApproveEnrollment(macStr, ApprovalParams{NodeID: 3}); err != nil {
+		t.Fatalf("initial ApproveEnrollment: %v", err)
+	}
+	_ = decodeWrittenFrame(t, mockPort) // JOIN_ACK
+	_ = decodeWrittenFrame(t, mockPort) // OP_NODE_ID_SET
+
+	mac := [6]byte{0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF}
+	var newPubKey [32]byte
+	for i := range newPubKey {
+		newPubKey[i] = byte(0xF0 + i)
+	}
+	msg := &MeshMessage{
+		OriginMacAddress: mac[:],
+		PublicKey:        newPubKey[:],
+	}
+	if err := ms.handleEnrollmentRequest(msg); err != nil {
+		t.Fatalf("handleEnrollmentRequest re-request with new key: %v", err)
+	}
+
+	// No JOIN_ACK should have been sent for the stale-key identity — it must
+	// wait for a fresh admin approval like any other pending enrollment.
+	if remaining := mockPort.GetWrittenDataFrom(mockPort.writeOffset); len(remaining) != 0 {
+		t.Errorf("unexpected frame written on re-key: %d bytes, want 0", len(remaining))
+	}
+
+	if ms.authRegistry.IsApproved(mac) {
+		t.Error("node must no longer be TrustApproved after its key changed")
+	}
+	gotKey, ok := ms.authRegistry.GetApprovedPublicKey(mac)
+	if ok {
+		t.Errorf("GetApprovedPublicKey should return !ok while pending, got %x", gotKey)
+	}
+}
+
 func TestApproveEnrollment_UnknownMAC_ReturnsError(t *testing.T) {
 	ms := newTestMeshServer(t)
 
