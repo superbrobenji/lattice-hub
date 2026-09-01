@@ -172,36 +172,22 @@ API_KEY=change-me-before-deploy
 ADMIN_KEY=change-me-too-before-deploy
 ```
 
-These ship as obvious placeholders. Generate a random value and replace
-**both** placeholders with it:
+These ship as obvious placeholders. Generate a random value for each and
+replace the placeholders:
 
 ```bash
 openssl rand -hex 32
 ```
 
-Run this once and paste the result in as the value for *both* variables —
-for example `API_KEY=3f9a1c...` and `ADMIN_KEY=3f9a1c...` (the same 64 hex
-characters in both places).
+Run this twice and paste one result in as the value for each variable —
+for example `API_KEY=3f9a1c...` and `ADMIN_KEY=b71e04...` (64 hex
+characters each).
 
-`API_KEY` is meant to guard the regular REST API, and `ADMIN_KEY` is meant
-to separately guard admin-tier operations (approving/rejecting node
-enrollments, hard deletes, and signing into the Dashboard). **Use the same
-value for both for now anyway.** There's a currently-open wiring gap
-([lattice-hub#122](https://github.com/superbrobenji/lattice-hub/issues/122))
-where the orchestrator container never actually receives `ADMIN_KEY` when
-you run the real (non-stub) stack — its admin-tier checks silently fall
-back to comparing against `API_KEY` instead. If the two values differ, node
-enrollment approval breaks, both via curl and via the Dashboard's Approve
-button — see the callout in
-[Step 4](#5-step-4-connect-your-first-esp32-master-node) and the
-[Troubleshooting](#6-troubleshooting) entry for the full explanation. Making
-them identical for now sidesteps the bug entirely; once #122 is fixed, you
-can safely split them into two different values.
-
-(If you're planning to use the hardware-free **stub** stack rather than
-real hardware, there's a second, stub-specific wrinkle — covered in
-[Step 3](#4-step-3-start-the-stack-and-verify-its-healthy) — so don't worry
-about matching a specific value here beyond "both the same.")
+`API_KEY` guards the regular REST API. `ADMIN_KEY` separately guards the
+admin-tier operations: approving/rejecting node enrollments, hard deletes,
+and signing into the Dashboard. Every container in the stack receives both
+values, so keeping them different means someone holding only `API_KEY`
+cannot approve enrollments or delete nodes.
 
 **Important nuance:** Docker Compose refuses to start the stack if either
 variable is completely **empty or missing** from `.env` — but it has no way
@@ -218,8 +204,8 @@ copy-pasting a secret around by hand. Make that work by exporting the same
 values in the terminal window you'll keep using for the rest of this guide:
 
 ```bash
-export API_KEY=<the value you just put in .env>
-export ADMIN_KEY=<the same value, since you just made them match>
+export API_KEY=<the API_KEY value you just put in .env>
+export ADMIN_KEY=<the ADMIN_KEY value you just put in .env>
 ```
 
 (`export`, not just setting the variable, matters here — it makes the value
@@ -283,30 +269,21 @@ plugged in yet, starting it will fail outright (see
 run:
 
 ```bash
-export API_KEY=dev
-export ADMIN_KEY=dev
 docker compose -f docker-compose.yml -f docker-compose.stub.yml up -d --build
 ```
 
 This is the same stack, with one difference: a `mesh-sim` container stands
 in for your serial-attached ESP32, simulating mesh traffic over a network
-connection instead of real USB. Everything else below behaves identically.
+connection instead of real USB. Everything else below behaves identically,
+including the keys: the stub stack reads `API_KEY` and `ADMIN_KEY` from
+your `.env` exactly like the real one, so the values you exported in
+[Step 2](#3-step-2-clone-the-repo-and-configure-your-environment) keep
+working for the `curl` and login steps below.
 
-**About those two `export` lines — they're not optional for the stub
-stack.** `docker-compose.stub.yml` hardcodes the orchestrator's own
-`API_KEY`/`ADMIN_KEY` to the literal string `dev`, ignoring whatever's in
-`.env`. The Dashboard and Artist Portal containers are *not* overridden the
-same way — by default they'd send the real value from your `.env`, which
-the orchestrator (stuck on `dev`) would then reject. Exporting `dev` for
-both in your shell first means every `docker compose` command you run in
-*this terminal window* — this one and the ones that follow, including the
-`curl`/login steps below — consistently uses `dev`, overriding the exports
-from [Step 2](#3-step-2-clone-the-repo-and-configure-your-environment) for
-as long as you're working with the stub stack in this window. This is
-exactly what this repo's `make stub` shortcut does under the hood, if
-you'd rather use that instead. When you're done with the stub stack and
-want to go back to real values (e.g. a fresh terminal window, or
-re-exporting your `.env` values), the real stack will use those again.
+(This repo's `make stub` shortcut, run from the repository root, starts the
+same stack but sets both keys to the literal value `dev` instead of reading
+`.env` — that's what the automated end-to-end tests use. If you go that
+route, use `dev` wherever this guide says `$API_KEY` or `$ADMIN_KEY`.)
 
 The first run also needs to build several container images from source
 (hence `--build` above; you can drop it on later runs where you haven't
@@ -365,10 +342,8 @@ If any service shows `(unhealthy)`, or keeps restarting, see
 - **Dashboard**: open `http://localhost:3000` in a browser. It redirects
   you to a login screen — sign in with your **`ADMIN_KEY`** value (not
   `API_KEY`; the Dashboard's own login is keyed off the admin key
-  specifically). If you're running the stub stack, that's the literal word
-  `dev` (per the `export ADMIN_KEY=dev` above) — not whatever's written in
-  `.env`, since the stub run's Dashboard container picked up `dev` from
-  your shell, overriding the file.
+  specifically). If you started the stack with `make stub`, that's the
+  literal word `dev`.
 - **Artist Portal**: open `http://localhost:3001` in a browser.
 
 You don't need to open the Sidecar (`:9000`) directly — the Dashboard's
@@ -437,27 +412,6 @@ curl -X POST http://localhost:8080/api/v1/enrollments/<mac>/approve \
 The JSON body is optional — all four fields (`name`, `zone`, `type`,
 `nodeId`) may be omitted. Rejecting works the same way, against
 `/api/v1/enrollments/<mac>/reject`.
-
-> **Why this works today, and what's actually going on underneath.** If you
-> followed [Step 2](#3-step-2-clone-the-repo-and-configure-your-environment)'s
-> guidance to make `API_KEY` and `ADMIN_KEY` identical, the command above —
-> and the Dashboard's Approve button — will just work, both in stub mode and
-> against real hardware. But the *reason* it works is currently a bit
-> backwards from what you'd expect, and worth knowing about
-> ([lattice-hub#122](https://github.com/superbrobenji/lattice-hub/issues/122)):
-> - In **stub mode**, the orchestrator only ever accepts the literal string
->   `dev` for either key (see [Step 3](#4-step-3-start-the-stack-and-verify-its-healthy)) —
->   `$ADMIN_KEY` only works above because you `export`ed `API_KEY=dev` and
->   `ADMIN_KEY=dev` before starting the stack.
-> - Against **real hardware** (the plain, non-stub stack), the orchestrator
->   container never receives `ADMIN_KEY` at all — only `API_KEY`. Its
->   admin-tier check silently falls back to comparing against `API_KEY`
->   instead. So `-H "Authorization: Bearer $ADMIN_KEY"` above only succeeds
->   because your `.env` made `$ADMIN_KEY` and `$API_KEY` the same value; if
->   you ever set them differently, this exact command — and the Dashboard's
->   Approve button, which always sends `ADMIN_KEY` — will fail with `401`/
->   `500` even though everything else about the stack looks perfectly
->   healthy. See [Troubleshooting](#6-troubleshooting) if you hit that.
 
 Once approved, the node disappears from the pending list and shows up in
 `curl http://localhost:8080/api/v1/nodes` (and the Dashboard's Nodes page)
@@ -567,30 +521,19 @@ tell a placeholder from a real secret. Go back and replace both values.
 **Approving (or rejecting) an enrollment fails with `401` from curl, or the
 Dashboard's Approve button shows "Unexpected Server Error" (`500`) — even
 though every service in `docker compose ps` shows `(healthy)`.**
-This is [lattice-hub#122](https://github.com/superbrobenji/lattice-hub/issues/122):
-`ADMIN_KEY` isn't wired to the orchestrator container the way you'd expect,
-in either mode this guide covers.
-- **Stub mode**: the orchestrator only ever accepts the literal string
-  `dev` for both `API_KEY` and `ADMIN_KEY`, regardless of `.env` — confirm
-  you ran `export API_KEY=dev` and `export ADMIN_KEY=dev` *before* starting
-  the stack, per [Step 3](#4-step-3-start-the-stack-and-verify-its-healthy).
-  If you started it without exporting those first, stop the stack
-  (`docker compose down`), export them now, and start it again — the
-  Dashboard/Artist Portal containers pick up their keys at startup and
-  won't self-correct from a plain `restart`.
-- **Real-hardware mode**: the orchestrator container never receives
-  `ADMIN_KEY` at all, so its admin-tier routes actually check the request
-  against `API_KEY` instead. Fix: make sure `.env`'s `API_KEY` and
-  `ADMIN_KEY` are set to the exact same value (per
-  [Step 2](#3-step-2-clone-the-repo-and-configure-your-environment)), then
-  `docker compose up -d` again so the Dashboard/Artist Portal containers
-  pick up the corrected value.
-
-Both of these are verified, working fixes for *today's* behavior, not just
-a description of the bug — but they're workarounds. The real fix (passing
-`ADMIN_KEY` through to the orchestrator, and not hardcoding stub keys) is
-tracked in the linked issue; once that lands, `API_KEY` and `ADMIN_KEY` can
-safely go back to being two different values.
+The orchestrator rejected the admin key it was sent. Two usual causes:
+- **Wrong key.** Approve and reject are admin-tier and need
+  `-H "Authorization: Bearer $ADMIN_KEY"`, not `$API_KEY`. Check that your
+  shell's `$ADMIN_KEY` (`echo $ADMIN_KEY`) matches the `ADMIN_KEY` line in
+  `.env`; if you opened a new terminal since
+  [Step 2](#3-step-2-clone-the-repo-and-configure-your-environment), export
+  it again. If you started the stack with `make stub`, both keys are `dev`.
+- **Stale containers.** If you edited either key in `.env` after the stack
+  was already running, the containers still hold the old values — a plain
+  `docker compose restart` does *not* re-read `.env`. Run
+  `docker compose up -d` again (with the same `-f` flags you started with)
+  so Compose recreates them with the new environment, then sign in to the
+  Dashboard again, since its session is tied to the old `ADMIN_KEY`.
 
 **`docker compose ps` (or `logs`, or `restart`) fails with `required
 variable API_KEY is missing a value`.**

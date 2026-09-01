@@ -143,6 +143,9 @@ jobs:
         run: |
           docker compose build
           docker compose -f docker-compose.yml -f docker-compose.stub.yml build mesh-sim
+      - name: Check API_KEY / ADMIN_KEY reach every service
+        working-directory: server
+        run: ./scripts/check-compose-keys.sh
 
   sidecar-test:
     name: Go test (sidecar)
