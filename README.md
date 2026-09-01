@@ -77,6 +77,11 @@ Expected response (no nodes enrolled yet):
 
 See [server/QUICK_START.md](server/QUICK_START.md) for USB serial device setup, Proxmox passthrough, and troubleshooting.
 
+**On macOS**, Docker Desktop can't pass a host USB-serial device into the `orchestrator`
+container at all, so bringing up a real ESP32 master needs a different path — running the
+orchestrator natively while the rest of the stack stays in Docker. See
+[docs/macos_native_dev.md](docs/macos_native_dev.md).
+
 ## End-to-end tests
 
 The `e2e/` directory holds a Playwright suite that exercises the dashboard and artist-portal against a stub stack — no ESP32 hardware required. A `mesh-sim` service stands in for the serial-attached ESP32 master, speaking the same protocol over `tcp://` instead of USB: it emits heartbeats and route reports, acks commands, and drives node enrollment and motion events like a real mesh.
@@ -111,6 +116,7 @@ Both the dashboard and artist-portal are covered.
 | [server/artist-portal/README.md](server/artist-portal/README.md) | Artist Portal setup, environment variables, development workflow |
 | [server/QUICK_START.md](server/QUICK_START.md) | Docker setup, USB device passthrough, troubleshooting |
 | [docs/getting_started.md](docs/getting_started.md) | Non-technical, zero-to-running walkthrough — Docker install through first node enrollment |
+| [docs/macos_native_dev.md](docs/macos_native_dev.md) | Running the orchestrator natively on macOS against a real ESP32 master — Docker Desktop can't pass through USB-serial devices |
 | [docs/using_the_hub.md](docs/using_the_hub.md) | Plain-language guide to the Dashboard and Artist Portal web UIs |
 | [docs/api_guide.md](docs/api_guide.md) | Plain-language walkthrough of the public REST API, for non-technical readers |
 | [docs/ecosystem.md](docs/ecosystem.md) | How `lattice-hub`, `lattice-nodes`, and `lattice-protocol` relate, and the protocol-version flag-day |

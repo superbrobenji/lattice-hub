@@ -1,6 +1,7 @@
 package nodeauth
 
 import (
+	"errors"
 	"os"
 	"testing"
 	"time"
@@ -104,6 +105,76 @@ func TestRegistry_GetAll(t *testing.T) {
 	all := r.GetAll()
 	if len(all) != 2 {
 		t.Fatalf("expected 2 nodes, got %d", len(all))
+	}
+}
+
+// TestRegistry_AddPending_AlreadyApprovedSameKey_ReturnsSentinel verifies the
+// #178 self-heal path: re-requesting with the exact key it was approved with
+// leaves the node Approved (so its record isn't disturbed) and returns
+// ErrAlreadyApprovedSameKey so the caller knows to resend the JOIN_ACK
+// directly, instead of getting a hard "already approved" failure with no
+// recovery path.
+func TestRegistry_AddPending_AlreadyApprovedSameKey_ReturnsSentinel(t *testing.T) {
+	r := NewRegistry()
+	mac := makeMAC(0x21)
+	pub := makePubKey(0x21)
+
+	if err := r.AddPending(mac, pub); err != nil {
+		t.Fatalf("AddPending: %v", err)
+	}
+	macStr := macToString(mac)
+	if _, err := r.Approve(macStr); err != nil {
+		t.Fatalf("Approve: %v", err)
+	}
+
+	err := r.AddPending(mac, pub)
+	if !errors.Is(err, ErrAlreadyApprovedSameKey) {
+		t.Fatalf("AddPending re-request with same key: got %v, want ErrAlreadyApprovedSameKey", err)
+	}
+
+	// Status/key must be untouched.
+	if !r.IsApproved(mac) {
+		t.Error("node should still be TrustApproved after same-key re-request")
+	}
+	gotKey, ok := r.GetApprovedPublicKey(mac)
+	if !ok || gotKey != pub {
+		t.Error("PublicKey should be unchanged after same-key re-request")
+	}
+}
+
+// TestRegistry_AddPending_AlreadyApprovedDifferentKey_ResetsToPending verifies
+// the #178 re-key self-heal path: re-requesting with a DIFFERENT key than the
+// one it was approved with (e.g. after a reflash regenerated its keypair)
+// updates the stored key and drops the node back to TrustPending so it
+// surfaces for a fresh admin approval, rather than permanently wedging with a
+// JOIN_ACK fingerprint that can never match the node's current key.
+func TestRegistry_AddPending_AlreadyApprovedDifferentKey_ResetsToPending(t *testing.T) {
+	r := NewRegistry()
+	mac := makeMAC(0x22)
+	oldPub := makePubKey(0x22)
+	newPub := makePubKey(0x23)
+
+	if err := r.AddPending(mac, oldPub); err != nil {
+		t.Fatalf("AddPending: %v", err)
+	}
+	macStr := macToString(mac)
+	if _, err := r.Approve(macStr); err != nil {
+		t.Fatalf("Approve: %v", err)
+	}
+
+	if err := r.AddPending(mac, newPub); err != nil {
+		t.Fatalf("AddPending with new key should succeed (re-key to pending), got: %v", err)
+	}
+
+	if r.IsApproved(mac) {
+		t.Error("node should no longer be TrustApproved after a key change — must await re-approval")
+	}
+	pending := r.GetPending()
+	if len(pending) != 1 || pending[0].MAC != mac {
+		t.Fatalf("expected the re-keyed node to appear in GetPending, got %+v", pending)
+	}
+	if pending[0].PublicKey != newPub {
+		t.Errorf("PublicKey = %x, want the new key %x", pending[0].PublicKey, newPub)
 	}
 }
 
