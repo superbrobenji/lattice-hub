@@ -21,6 +21,10 @@ test('stop and start the mesh process', async ({ dashPage }) => {
   // reload rather than lingering for the 75s healthTimeout. The generous
   // timeouts below are kept as headroom for the stub stack's process
   // control round-trips, not for a health-timeout transition.
+  // The stub stack also sets HEALTH_TIMEOUT_SECONDS=20
+  // (server/docker-compose.stub.yml); the bounds stay sized for the 75s
+  // production default so the test also passes against an orchestrator
+  // without that override.
   test.setTimeout(180_000);
 
   await dashPage.goto(DASHBOARD_URL + '/server');
