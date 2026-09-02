@@ -233,7 +233,12 @@ board in hand.
   doesn't already exist. The default (`data/masterkey.json`) is fine for
   local use. (A known first-run snag with this auto-generation, and its
   fix, is covered in [Troubleshooting](#6-troubleshooting) — check there if
-  the file never appears.)
+  the file never appears.) This file is the hub's identity *only* — it is
+  **not** the key that node firmware pins against. `lattice-nodes`'
+  `master_pubkey_pin.h` is generated from the master *board's* own
+  `LATTICE_PUBKEY:` serial line (see its getting-started guide, Step 3, and
+  [lattice-nodes#126](https://github.com/superbrobenji/lattice-nodes/issues/126));
+  you never need to copy `masterkey.json` to the firmware checkout.
 - **`MASTER_MAC`** is the physical WiFi MAC address of the one ESP32 board
   that will be your **master** — the board wired to this computer over
   USB. This one *cannot* be auto-generated, and there's no tooling in this
