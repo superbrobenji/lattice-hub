@@ -65,6 +65,14 @@ MASTER_MAC=<MAC from Step 1>
 `SERIAL_PORT` in `.env` is irrelevant for this workflow — the native orchestrator process gets its
 own environment directly (Step 5), not from Docker Compose's `.env`.
 
+> **`MASTER_KEY_PATH` is the hub's *own* identity, not the firmware pin.** The orchestrator
+> auto-generates `data/masterkey.json` on first start and uses it as its own keypair. It is **not**
+> what leaf firmware pins against: `lattice-nodes`' `master_pubkey_pin.h` must be generated from the
+> master *board's* own key — the `LATTICE_PUBKEY:` line it prints over serial at boot — plus its MAC
+> (see `lattice-nodes`' `docs/macos_dev_bringup.md` Steps 2–3 and
+> [lattice-nodes#126](https://github.com/superbrobenji/lattice-nodes/issues/126)). You never need to
+> copy `masterkey.json` anywhere, and a pin derived from it will never let a node enroll.
+
 ## Step 3: Fix the Kafka listener for native/host access
 
 Kafka's `EXTERNAL` listener (meant for exactly this "client outside Docker" case) advertises
@@ -160,8 +168,10 @@ SECONDARY_MASTER_MAC=<second board's real MAC>
 
 `SECONDARY_MASTER_KEY_PATH` auto-generates its own keypair on first run, same as the primary's —
 this is a genuinely separate identity, used only as informational payload relayed to nodes for
-TOFU-learning the secondary (not used for the firmware's compile-time pin check, which only ever
-validates against the primary's pubkey — see the `lattice-nodes` doc for why).
+TOFU-learning the secondary. It is not used for the firmware's compile-time pin check, which only
+ever validates against the primary *board's* own on-device pubkey — neither this file nor
+`masterkey.json` is what leaves pin against (see the `lattice-nodes` doc and
+[lattice-nodes#126](https://github.com/superbrobenji/lattice-nodes/issues/126)).
 
 ### Run natively with both ports
 
