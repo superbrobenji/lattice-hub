@@ -359,9 +359,10 @@ paths:
         - `motion` — PIR trigger `{nodeId, name, zone, hopCount, timestamp}`
         - `health` — node health report `{nodeId, name, online, uptime, hopCount}`
         - `node_online` — first-seen node `{nodeId, name}`
-        - `node_offline` — node offline `{nodeId, name}`
+        - `node_offline` — node offline `{nodeId, name, lastSeen}`
         - `enrolled` — node enrollment approved `{nodeId, name, type}`
         - `command_ack` — command acknowledged by node (Phase 5) `{commandId, nodeId, status}`
+        - `route_update` — node's parent (next hop towards the master) changed `{nodeId, parentId}`; `parentId` is `null` when the node reaches the master directly
       responses:
         "200":
           description: SSE stream
