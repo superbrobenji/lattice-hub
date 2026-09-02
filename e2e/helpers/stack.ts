@@ -17,7 +17,7 @@ async function waitOk(url: string, init: RequestInit = {}, timeoutMs = 60_000): 
     } catch (err) {
       lastErr = err;
     }
-    await new Promise((r) => setTimeout(r, 1000));
+    await new Promise((r) => setTimeout(r, 250));
   }
   throw new Error(`timed out waiting for ${url}: ${lastErr}`);
 }

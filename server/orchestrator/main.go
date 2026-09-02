@@ -103,6 +103,17 @@ func main() {
 		secondaryMasterKeyPath, secondaryMasterMAC = loadSecondaryMasterIdentity()
 	}
 
+	// HEALTH_TIMEOUT_SECONDS: how long a node (or the master serial link) may go
+	// without a frame before the API reports it offline. 75s suits real radios;
+	// the stub stack lowers it (server/docker-compose.stub.yml) so the e2e
+	// offline-transition tests don't each wait over a minute.
+	healthTimeout := 75 * time.Second
+	if secs := envOrDefaultInt("HEALTH_TIMEOUT_SECONDS", 75); secs > 0 {
+		healthTimeout = time.Duration(secs) * time.Second
+	} else {
+		slog.Warn("HEALTH_TIMEOUT_SECONDS must be positive, using default", "value", secs, "default", 75)
+	}
+
 	// Setup mesh server
 	meshConfig := mesh.MeshServerConfig{
 		SerialPort: *serialPort,
@@ -112,9 +123,9 @@ func main() {
 			}
 			return ""
 		}(),
-		BaudRate:         *baudRate,
-		HealthTimeout:    75 * time.Second,
-		EventStore:       eventStore,
+		BaudRate:               *baudRate,
+		HealthTimeout:          healthTimeout,
+		EventStore:             eventStore,
 		AuthRegistryPath:       *authRegistry,
 		NodeRegistryPath:       *nodeRegistry,
 		ZoneRegistryPath:       zoneRegistryPath,
