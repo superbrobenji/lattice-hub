@@ -48,7 +48,7 @@ func (nr *NodeRegistry) UpdateNode(mac []byte, adapterType int32, uptime uint32,
 	defer nr.mu.Unlock()
 
 	macStr := macToString(mac)
-	
+
 	node, exists := nr.nodes[macStr]
 	if !exists {
 		node = &NodeInfo{
@@ -123,7 +123,7 @@ func (nr *NodeRegistry) GetNode(mac []byte) (*NodeInfo, bool) {
 	nodeCopy := *node
 	nodeCopy.MAC = make([]byte, len(node.MAC))
 	copy(nodeCopy.MAC, node.MAC)
-	
+
 	return &nodeCopy, true
 }
 
@@ -182,7 +182,7 @@ func (nr *NodeRegistry) GetOnlineNodes(timeout time.Duration) []*NodeInfo {
 
 	cutoff := time.Now().Add(-timeout)
 	nodes := make([]*NodeInfo, 0)
-	
+
 	for _, node := range nr.nodes {
 		if node.LastSeen.After(cutoff) && node.Status != "replaced" {
 			// Return a copy to avoid race conditions
@@ -383,7 +383,7 @@ func macToString(mac []byte) string {
 	if len(mac) != MACAddressLength {
 		return hex.EncodeToString(mac)
 	}
-	return fmt.Sprintf("%02x:%02x:%02x:%02x:%02x:%02x", 
+	return fmt.Sprintf("%02x:%02x:%02x:%02x:%02x:%02x",
 		mac[0], mac[1], mac[2], mac[3], mac[4], mac[5])
 }
 

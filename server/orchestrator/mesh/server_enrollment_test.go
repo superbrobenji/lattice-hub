@@ -391,8 +391,8 @@ func TestApproveEnrollment_HotswapSendsConfigSet(t *testing.T) {
 		t.Fatalf("ApproveEnrollment: %v", err)
 	}
 
-	_ = decodeWrittenFrame(t, mockPort) // JOIN_ACK
-	_ = decodeWrittenFrame(t, mockPort) // OP_NODE_ID_SET
+	_ = decodeWrittenFrame(t, mockPort)          // JOIN_ACK
+	_ = decodeWrittenFrame(t, mockPort)          // OP_NODE_ID_SET
 	configMsg := decodeWrittenFrame(t, mockPort) // OP_CONFIG_SET
 
 	if len(configMsg.Data) == 0 || configMsg.Data[0] != byte(OpConfigSet) {
@@ -416,7 +416,7 @@ func TestApproveEnrollment_NodeIdSet_HasProtoVersion5(t *testing.T) {
 		t.Fatalf("ApproveEnrollment returned error: %v", err)
 	}
 
-	_ = decodeWrittenFrame(t, mockPort) // JOIN_ACK
+	_ = decodeWrittenFrame(t, mockPort)          // JOIN_ACK
 	nodeIdMsg := decodeWrittenFrame(t, mockPort) // OP_NODE_ID_SET
 
 	if nodeIdMsg.ProtoVersion != 5 {
@@ -435,7 +435,7 @@ func TestApproveEnrollment_NodeIdSet_HasMasterOriginMAC(t *testing.T) {
 		t.Fatalf("ApproveEnrollment returned error: %v", err)
 	}
 
-	_ = decodeWrittenFrame(t, mockPort) // JOIN_ACK
+	_ = decodeWrittenFrame(t, mockPort)          // JOIN_ACK
 	nodeIdMsg := decodeWrittenFrame(t, mockPort) // OP_NODE_ID_SET
 
 	wantMasterMAC := []byte{0xDE, 0xAD, 0xBE, 0xEF, 0x00, 0x01}

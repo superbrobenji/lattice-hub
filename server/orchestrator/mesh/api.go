@@ -222,7 +222,7 @@ func (api *APIServer) writeError(w http.ResponseWriter, status int, message stri
 // getNodes returns all known nodes
 func (api *APIServer) getNodes(w http.ResponseWriter, r *http.Request) {
 	nodes := api.meshServer.GetNodeRegistry().GetAllNodes()
-	
+
 	api.writeJSON(w, http.StatusOK, APIResponse{
 		Success: true,
 		Data:    nodes,
@@ -233,19 +233,19 @@ func (api *APIServer) getNodes(w http.ResponseWriter, r *http.Request) {
 func (api *APIServer) getNode(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	macStr := vars["mac"]
-	
+
 	mac, err := StringToMAC(macStr)
 	if err != nil {
 		api.writeError(w, http.StatusBadRequest, fmt.Sprintf("Invalid MAC address: %v", err))
 		return
 	}
-	
+
 	node, exists := api.meshServer.GetNodeRegistry().GetNode(mac)
 	if !exists {
 		api.writeError(w, http.StatusNotFound, "Node not found")
 		return
 	}
-	
+
 	api.writeJSON(w, http.StatusOK, APIResponse{
 		Success: true,
 		Data:    node,
@@ -317,7 +317,7 @@ func (api *APIServer) requestHealth(w http.ResponseWriter, r *http.Request) {
 		api.writeError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to request health reports: %v", err))
 		return
 	}
-	
+
 	api.writeJSON(w, http.StatusOK, APIResponse{
 		Success: true,
 		Message: "Health reports requested",
@@ -329,14 +329,14 @@ func (api *APIServer) getStatus(w http.ResponseWriter, r *http.Request) {
 	registry := api.meshServer.GetNodeRegistry()
 	allNodes := registry.GetAllNodes()
 	onlineNodes := registry.GetOnlineNodes(75 * time.Second) // 2.5× the 30s health interval — single missed report no longer marks offline
-	
+
 	status := map[string]interface{}{
 		"running":     api.meshServer.IsRunning(),
 		"totalNodes":  len(allNodes),
 		"onlineNodes": len(onlineNodes),
 		"timestamp":   time.Now().Unix(),
 	}
-	
+
 	api.writeJSON(w, http.StatusOK, APIResponse{
 		Success: true,
 		Data:    status,
@@ -361,15 +361,15 @@ func (api *APIServer) broadcastData(w http.ResponseWriter, r *http.Request) {
 		api.writeError(w, http.StatusBadRequest, fmt.Sprintf("Invalid request body: %v", err))
 		return
 	}
-	
+
 	if err := api.meshServer.BroadcastData(req.DataType, req.Data); err != nil {
 		api.writeError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to broadcast data: %v", err))
 		return
 	}
-	
+
 	api.writeJSON(w, http.StatusOK, APIResponse{
 		Success: true,
-		Message: fmt.Sprintf("Data broadcasted to all nodes (type: %s, length: %d)", 
+		Message: fmt.Sprintf("Data broadcasted to all nodes (type: %s, length: %d)",
 			GetAdapterTypeName(req.DataType), len(req.Data)),
 	})
 }
@@ -380,12 +380,12 @@ func (api *APIServer) startServer(w http.ResponseWriter, r *http.Request) {
 		api.writeError(w, http.StatusConflict, "Server is already running")
 		return
 	}
-	
+
 	if err := api.meshServer.Start(); err != nil {
 		api.writeError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to start server: %v", err))
 		return
 	}
-	
+
 	api.writeJSON(w, http.StatusOK, APIResponse{
 		Success: true,
 		Message: "Mesh server started",
@@ -398,12 +398,12 @@ func (api *APIServer) stopServer(w http.ResponseWriter, r *http.Request) {
 		api.writeError(w, http.StatusConflict, "Server is not running")
 		return
 	}
-	
+
 	if err := api.meshServer.Stop(); err != nil {
 		api.writeError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to stop server: %v", err))
 		return
 	}
-	
+
 	api.writeJSON(w, http.StatusOK, APIResponse{
 		Success: true,
 		Message: "Mesh server stopped",

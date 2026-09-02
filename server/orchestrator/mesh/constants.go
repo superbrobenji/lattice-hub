@@ -50,9 +50,9 @@ const (
 
 // Output adapter command opcodes — aliases from lattice-protocol/opcodes.
 const (
-	OpLEDSolid    = opcodes.OpLEDSolid   // 0xD0
-	OpLEDOff      = opcodes.OpLEDOff     // 0xD1
-	OpRelaySet    = opcodes.OpRelaySet   // 0xD8
+	OpLEDSolid    = opcodes.OpLEDSolid    // 0xD0
+	OpLEDOff      = opcodes.OpLEDOff      // 0xD1
+	OpRelaySet    = opcodes.OpRelaySet    // 0xD8
 	OpRouteReport = opcodes.OpRouteReport // 0xB3
 )
 

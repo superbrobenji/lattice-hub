@@ -75,7 +75,7 @@ func (mb *MessageBuilder) BuildAdapterDataMessage(targetMAC []byte, dataType int
 	if len(targetMAC) != MACAddressLength {
 		return nil, fmt.Errorf("invalid MAC address length: %d, expected %d", len(targetMAC), MACAddressLength)
 	}
-	
+
 	if len(data) > MaxDataLength {
 		return nil, fmt.Errorf("data length %d exceeds maximum %d", len(data), MaxDataLength)
 	}

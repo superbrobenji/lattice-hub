@@ -10,8 +10,8 @@ import (
 	"time"
 
 	"github.com/containerd/errdefs"
-	"github.com/moby/moby/client"
 	"github.com/gorilla/mux"
+	"github.com/moby/moby/client"
 )
 
 type ContainerHandler struct {
@@ -97,7 +97,9 @@ type dockerStatsJSON struct {
 		OnlineCPUs  uint32 `json:"online_cpus"`
 	} `json:"cpu_stats"`
 	PreCPUStats struct {
-		CPUUsage    struct{ TotalUsage uint64 `json:"total_usage"` } `json:"cpu_usage"`
+		CPUUsage struct {
+			TotalUsage uint64 `json:"total_usage"`
+		} `json:"cpu_usage"`
 		SystemUsage uint64 `json:"system_cpu_usage"`
 	} `json:"precpu_stats"`
 	MemoryStats struct {
@@ -127,8 +129,12 @@ func (h *ContainerHandler) GetStats(w http.ResponseWriter, r *http.Request) {
 
 	cpuDeltaRaw := int64(s.CPUStats.CPUUsage.TotalUsage) - int64(s.PreCPUStats.CPUUsage.TotalUsage)
 	sysDeltaRaw := int64(s.CPUStats.SystemUsage) - int64(s.PreCPUStats.SystemUsage)
-	if cpuDeltaRaw < 0 { cpuDeltaRaw = 0 }
-	if sysDeltaRaw < 0 { sysDeltaRaw = 0 }
+	if cpuDeltaRaw < 0 {
+		cpuDeltaRaw = 0
+	}
+	if sysDeltaRaw < 0 {
+		sysDeltaRaw = 0
+	}
 	cpuDelta := float64(cpuDeltaRaw)
 	sysDelta := float64(sysDeltaRaw)
 	numCPUs := float64(s.CPUStats.OnlineCPUs)
@@ -239,7 +245,12 @@ func (h *ContainerHandler) InspectContainer(w http.ResponseWriter, r *http.Reque
 	}
 
 	WriteJSON(w, http.StatusOK, map[string]interface{}{
-		"id":            func() string { if len(info.ID) > 12 { return info.ID[:12] }; return info.ID }(),
+		"id": func() string {
+			if len(info.ID) > 12 {
+				return info.ID[:12]
+			}
+			return info.ID
+		}(),
 		"name":          strings.TrimPrefix(info.Name, "/"),
 		"image":         info.Config.Image,
 		"created":       info.Created,
