@@ -257,3 +257,25 @@ func TestV1Status_Mesh_SingleMaster_SecondaryOnlinePresentAndFalse(t *testing.T)
 		"secondaryOnline": false,
 	})
 }
+
+// --- Stop() forgets both links ---
+
+func TestStop_ResetsPrimaryAndSecondaryLastFrame(t *testing.T) {
+	ms := newDualMasterTestServer(t)
+	setLastFrames(t, ms, freshFrameAge, freshFrameAge)
+	// Stop() refuses unless running; with no ports or persistence loops open
+	// there is nothing else for it to tear down.
+	ms.mu.Lock()
+	ms.running = true
+	ms.mu.Unlock()
+
+	if err := ms.Stop(); err != nil {
+		t.Fatalf("Stop() error: %v", err)
+	}
+
+	primary, secondary := lastFrameTimes(ms)
+	if !primary.IsZero() || !secondary.IsZero() {
+		t.Errorf("last-frame times after Stop() = (%v, %v), want both zero", primary, secondary)
+	}
+	assertOnline(t, ms, false, false, false)
+}

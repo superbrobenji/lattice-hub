@@ -274,6 +274,14 @@ func (ms *MeshServer) Stop() error {
 	ms.cancel()
 	ms.running = false
 
+	// Both links are being torn down: forget their last frames so the
+	// per-master online flags read false immediately instead of lingering
+	// for up to healthTimeout.
+	ms.frameTimeMu.Lock()
+	ms.primaryLastFrameAt = time.Time{}
+	ms.secondaryLastFrameAt = time.Time{}
+	ms.frameTimeMu.Unlock()
+
 	// Stop persistence loops (final save happens inside each PersistLoop)
 	close(ms.stopPersist)
 	if ms.nodeRegistryPath != "" {
