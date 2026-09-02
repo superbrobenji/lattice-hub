@@ -27,16 +27,21 @@ services:
       dockerfile: Dockerfile.mesh-sim
     ports:
       - "127.0.0.1:9001:9001"
-    # Same probe as Dockerfile.mesh-sim, but every 1s instead of 5s: the
-    # orchestrator's depends_on gates on this health check, and every e2e
-    # resetStack() force-recreates both containers, so the probe interval is
-    # paid on each of the suite's per-file resets.
+    # Same probe as Dockerfile.mesh-sim, but fast: the orchestrator's
+    # depends_on gates on this health check, and every e2e resetStack()
+    # force-recreates both containers, so the time-to-first-probe is paid on
+    # each of the suite's per-file resets. `interval` alone does not help —
+    # Docker spaces probes by `start_interval` (default 5s) while inside
+    # `start_period`, and the first timer is armed at container start, so the
+    # first probe fired at 5s regardless. start_interval needs Docker Engine
+    # 25+ / Compose 2.20+.
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "-O", "/dev/null", "http://localhost:9001/sim/state"]
       interval: 1s
       timeout: 3s
       retries: 5
-      start_period: 2s
+      start_period: 5s
+      start_interval: 1s
     networks:
       - kafka-net
     restart: unless-stopped
