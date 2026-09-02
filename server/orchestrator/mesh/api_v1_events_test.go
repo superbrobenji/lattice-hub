@@ -143,3 +143,56 @@ func TestV1Enrollments_GetAll_ReturnsOK(t *testing.T) {
 		t.Fatalf("got %d, want 200", w.Code)
 	}
 }
+
+// streamOneEvent runs v1Events, publishes e once the handler has subscribed,
+// and returns the SSE body written for it.
+func streamOneEvent(t *testing.T, e Event) string {
+	t.Helper()
+	api, ms := newV1TestServer(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	req := httptest.NewRequest("GET", "/api/v1/events", nil).WithContext(ctx)
+	req.Header.Set("Authorization", "Bearer test-key")
+	tf := &testFlusher{httptest.NewRecorder()}
+
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		api.v1Events(tf, req)
+	}()
+	time.Sleep(10 * time.Millisecond)
+	ms.GetEventBroker().Publish(e)
+	time.Sleep(50 * time.Millisecond)
+	cancel()
+	<-done
+	return tf.Body.String()
+}
+
+func TestV1Events_AddsEnvelopeTimestampWhenPayloadHasNone(t *testing.T) {
+	raw, _ := json.Marshal(map[string]interface{}{"nodeId": 7, "parentId": nil})
+	at := time.Date(2026, 9, 2, 8, 0, 0, 0, time.UTC)
+
+	body := streamOneEvent(t, Event{Type: EventRouteUpdate, Data: raw, Timestamp: at})
+
+	if !strings.Contains(body, `"timestamp":"2026-09-02T08:00:00Z"`) {
+		t.Errorf("data line missing envelope timestamp; got: %q", body)
+	}
+	if !strings.Contains(body, `"parentId":null`) {
+		t.Errorf("payload fields must be preserved; got: %q", body)
+	}
+}
+
+func TestV1Events_KeepsPublisherTimestamp(t *testing.T) {
+	raw, _ := json.Marshal(map[string]interface{}{"nodeId": 7, "timestamp": "2026-01-01T00:00:00Z"})
+	at := time.Date(2026, 9, 2, 8, 0, 0, 0, time.UTC)
+
+	body := streamOneEvent(t, Event{Type: EventMotion, Data: raw, Timestamp: at})
+
+	if !strings.Contains(body, `"timestamp":"2026-01-01T00:00:00Z"`) {
+		t.Errorf("publisher timestamp must win; got: %q", body)
+	}
+	if strings.Contains(body, "2026-09-02") {
+		t.Errorf("envelope timestamp must not overwrite the publisher's; got: %q", body)
+	}
+}

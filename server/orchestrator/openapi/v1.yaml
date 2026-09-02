@@ -355,13 +355,15 @@ paths:
       summary: SSE event stream
       tags: [events]
       description: |
-        Server-Sent Events stream. Events:
+        Server-Sent Events stream. Every event's `data` object carries an RFC 3339 UTC
+        `timestamp` of when it happened (the stream adds it when the publisher did not). Events:
         - `motion` — PIR trigger `{nodeId, name, zone, hopCount, timestamp}`
-        - `health` — node health report `{nodeId, name, online, uptime, hopCount}`
-        - `node_online` — first-seen node `{nodeId, name}`
-        - `node_offline` — node offline `{nodeId, name}`
-        - `enrolled` — node enrollment approved `{nodeId, name, type}`
-        - `command_ack` — command acknowledged by node (Phase 5) `{commandId, nodeId, status}`
+        - `health` — node health report `{nodeId, name, online, uptime, hopCount, timestamp}`
+        - `node_online` — first-seen node `{nodeId, name, timestamp}`
+        - `node_offline` — node offline `{nodeId, name, lastSeen, timestamp}`
+        - `enrolled` — node enrollment approved `{nodeId, name, type, timestamp}`
+        - `command_ack` — command acknowledged by node (Phase 5) `{commandId, nodeId, status, timestamp}`
+        - `route_update` — node's parent (next hop towards the master) changed `{nodeId, parentId, timestamp}`; `parentId` is `null` when the node reaches the master directly
       responses:
         "200":
           description: SSE stream
