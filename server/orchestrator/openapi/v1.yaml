@@ -426,7 +426,10 @@ components:
           description: True once the topic exists on the broker.
         failedWrites:
           type: integer
-          description: Deliveries to this topic that returned an error since the orchestrator started.
+          description: >-
+            Deliveries to this topic reported as failed. The writer delivers
+            asynchronously, so this is counted moments after WriteMessage
+            returns, not synchronously with it.
         lastError:
           type: string
           description: Most recent delivery or creation error for this topic; empty if none.
@@ -456,7 +459,9 @@ components:
             $ref: "#/components/schemas/KafkaTopicStatus"
         failedWrites:
           type: integer
-          description: Total failed deliveries across all topics since the orchestrator started.
+          description: >-
+            Total failed deliveries across all topics, counted asynchronously
+            as each one's outcome arrives (see KafkaTopicStatus.failedWrites).
         lastError:
           type: string
           description: Most recent error of any kind; empty if none.

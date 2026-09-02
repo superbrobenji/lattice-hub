@@ -57,6 +57,26 @@ func (s *store) Connect() error {
 	s.writer = &kafka.Writer{
 		Addr:     kafka.TCP(s.broker),
 		Balancer: &kafka.LeastBytes{},
+		// Async delivery keeps WriteMessage from ever blocking the caller —
+		// notably the serial mesh frame loop, which calls it inline for every
+		// frame. A synchronous writer's WriteMessages blocks for the whole
+		// BatchTimeout (1s by default) on each call; see lattice-hub#201's
+		// regression. BatchTimeout is set short so async batches still flush
+		// promptly instead of waiting on the (now-moot) 1s default.
+		Async:        true,
+		BatchTimeout: 10 * time.Millisecond,
+		// Completion reports the outcome of an async batch once it's known.
+		// This is now the only path that records delivery failures — the
+		// WriteMessage return value no longer carries them — so Stats() (and
+		// GET /api/v1/status's kafka object) stays truthful.
+		Completion: func(messages []kafka.Message, err error) {
+			if err == nil {
+				return
+			}
+			for _, msg := range messages {
+				s.recordWriteFailure(msg.Topic, err)
+			}
+		},
 	}
 	if s.admin == nil {
 		// Shares kafka.DefaultTransport with the writer, so a successful
@@ -88,6 +108,18 @@ func (s *store) Connect() error {
 	return nil
 }
 
+// WriteMessage hands event to the writer for topic and returns without
+// waiting for the broker to acknowledge it — the writer is configured for
+// asynchronous delivery (see Connect), so this never blocks the mesh frame
+// loop the way a synchronous kafka.Writer's WriteMessages would.
+//
+// It returns an error only when the store has never connected. Once
+// connected, it returns nil as soon as the message is handed to the writer;
+// delivery failures are recorded asynchronously via the writer's Completion
+// callback and surface later through Stats(), not through this return
+// value. The rare synchronous error WriteMessages can still return in async
+// mode (e.g. the message could not be enqueued) is recorded the same way,
+// through recordWriteFailure, so Stats() stays truthful either way.
 func (s *store) WriteMessage(event string, topic string) error {
 	if s.writer == nil {
 		err := errors.New("not connected")
@@ -97,15 +129,12 @@ func (s *store) WriteMessage(event string, topic string) error {
 	slog.Debug("Delivering message", "topic", topic)
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
-	err := s.writer.WriteMessages(ctx,
+	if err := s.writer.WriteMessages(ctx,
 		kafka.Message{Topic: topic, Value: []byte(event)},
-	)
-	if err != nil {
-		slog.Error("Kafka delivery failed", "topic", topic, "error", err)
+	); err != nil {
+		slog.Error("Kafka enqueue failed", "topic", topic, "error", err)
 		s.recordWriteFailure(topic, err)
-		return err
 	}
-	slog.Debug("Delivered message", "topic", topic)
 	return nil
 }
 
