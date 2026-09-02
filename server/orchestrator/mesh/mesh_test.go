@@ -77,8 +77,8 @@ func newBlockingEventStore() *blockingEventStore {
 func (b *blockingEventStore) Connect() error { return nil }
 func (b *blockingEventStore) Close() error   { return nil }
 func (b *blockingEventStore) WriteMessage(_ string, _ string) error {
-	close(b.ready)   // signal: we are inside WriteMessage (RLock is held)
-	<-b.release      // wait until test says to continue
+	close(b.ready) // signal: we are inside WriteMessage (RLock is held)
+	<-b.release    // wait until test says to continue
 	return nil
 }
 
@@ -139,7 +139,7 @@ func TestMessageBuilder(t *testing.T) {
 	t.Run("BuildConfigSetMessage", func(t *testing.T) {
 		mac := []byte{0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF}
 		msg, err := builder.BuildConfigSetMessage(mac, AdapterTypePIR)
-		
+
 		if err != nil {
 			t.Fatalf("Expected no error, got %v", err)
 		}
@@ -167,7 +167,7 @@ func TestMessageBuilder(t *testing.T) {
 
 	t.Run("BuildHealthRequestMessage", func(t *testing.T) {
 		msg := builder.BuildHealthRequestMessage()
-		
+
 		if msg.MessageType != MessageTypeAdapterData {
 			t.Errorf("Expected MessageType %d, got %d", MessageTypeAdapterData, msg.MessageType)
 		}
@@ -190,7 +190,7 @@ func TestMessageBuilder(t *testing.T) {
 		mac := []byte{0x11, 0x22, 0x33, 0x44, 0x55, 0x66}
 		copy(data[2:8], mac)
 		// Uptime (little-endian)
-		data[8] = 0x10  // 4112 seconds
+		data[8] = 0x10 // 4112 seconds
 		data[9] = 0x10
 		data[10] = 0x00
 		data[11] = 0x00
@@ -617,7 +617,7 @@ func TestStringToMAC(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.input, func(t *testing.T) {
 			result, err := StringToMAC(tc.input)
-			
+
 			if tc.hasError {
 				if err == nil {
 					t.Errorf("Expected error for input %s", tc.input)
@@ -626,7 +626,7 @@ func TestStringToMAC(t *testing.T) {
 				if err != nil {
 					t.Errorf("Unexpected error for input %s: %v", tc.input, err)
 				}
-				
+
 				if !bytes.Equal(result, tc.expected) {
 					t.Errorf("Expected %x, got %x for input %s", tc.expected, result, tc.input)
 				}
