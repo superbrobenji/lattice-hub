@@ -49,7 +49,9 @@ func (api *APIServer) v1Status(w http.ResponseWriter, r *http.Request) {
 				"nextFreeId": int(api.meshServer.GetNodeRegistry().NextFreeNodeID()),
 			},
 			"mesh": map[string]bool{
-				"masterOnline": api.meshServer.IsMasterOnline(),
+				"masterOnline":    api.meshServer.IsMasterOnline(),
+				"primaryOnline":   api.meshServer.IsPrimaryOnline(),
+				"secondaryOnline": api.meshServer.IsSecondaryOnline(),
 			},
 		},
 	})

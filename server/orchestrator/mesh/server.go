@@ -32,12 +32,16 @@ var txPowerPresetNames = map[uint8]string{
 // MeshServer manages the mesh network communication
 type MeshServer struct {
 	serialComm          *SerialComm
-	secondaryPort        string
-	secondarySerialComm  *SerialComm
-	secondaryConnected   bool
+	secondaryPort       string
+	secondarySerialComm *SerialComm
+	secondaryConnected  bool
 
-	frameTimeMu        sync.Mutex // protects primaryLastFrameAt
-	primaryLastFrameAt time.Time
+	// Per-link liveness. Each timestamp is stamped only by the
+	// messageProcessor bound to that link, so a frame counts for the port it
+	// arrived on — never attributed by origin MAC.
+	frameTimeMu          sync.Mutex // protects primaryLastFrameAt, secondaryLastFrameAt
+	primaryLastFrameAt   time.Time
+	secondaryLastFrameAt time.Time
 
 	nodeRegistry   *NodeRegistry
 	messageBuilder *MessageBuilder
@@ -45,7 +49,7 @@ type MeshServer struct {
 
 	// Auth
 	authRegistry *nodeauth.Registry
-	authPath     string        // Path to persist registry JSON
+	authPath     string // Path to persist registry JSON
 	stopPersist  chan struct{}
 
 	// Node registry persistence
@@ -96,13 +100,13 @@ type MeshServerConfig struct {
 	SerialPort          string
 	SerialPortSecondary string // empty = single-master mode
 	BaudRate            int
-	HealthTimeout    time.Duration
-	EventStore       EventStore.EventStoreInterface
-	AuthRegistryPath string // e.g. "data/nodeauth.json"
-	NodeRegistryPath string // e.g. "data/nodes.json"
-	ZoneRegistryPath string // e.g. "data/zones.json"
-	MasterKeyPath    string // e.g. "data/masterkey.json"
-	MasterMAC        [6]byte
+	HealthTimeout       time.Duration
+	EventStore          EventStore.EventStoreInterface
+	AuthRegistryPath    string // e.g. "data/nodeauth.json"
+	NodeRegistryPath    string // e.g. "data/nodes.json"
+	ZoneRegistryPath    string // e.g. "data/zones.json"
+	MasterKeyPath       string // e.g. "data/masterkey.json"
+	MasterMAC           [6]byte
 	// Secondary master identity — only stamped into JOIN_ACK when both
 	// SecondaryMasterKeyPath and SecondaryMasterMAC are set. Firmware
 	// Phase 4+5 consume these v3 fields; leaving them zero yields
@@ -137,22 +141,22 @@ func NewMeshServer(config MeshServerConfig) *MeshServer {
 	}
 
 	ms := &MeshServer{
-		nodeRegistry:     nodeRegistry,
-		messageBuilder:   NewMessageBuilder(),
-		eventStore:       config.EventStore,
-		authRegistry:     registry,
-		authPath:         config.AuthRegistryPath,
-		stopPersist:      make(chan struct{}),
-		nodeRegistryPath: config.NodeRegistryPath,
-		stopNodePersist:  make(chan struct{}),
-		serialPort:       config.SerialPort,
-		secondaryPort:    config.SerialPortSecondary,
-		baudRate:         config.BaudRate,
-		healthTimeout:    config.HealthTimeout,
-		eventBroker:      NewEventBroker(),
-		nodeOnlineState:  make(map[string]bool),
-		zoneRegistry:     zoneRegistry,
-		zoneRegistryPath: config.ZoneRegistryPath,
+		nodeRegistry:       nodeRegistry,
+		messageBuilder:     NewMessageBuilder(),
+		eventStore:         config.EventStore,
+		authRegistry:       registry,
+		authPath:           config.AuthRegistryPath,
+		stopPersist:        make(chan struct{}),
+		nodeRegistryPath:   config.NodeRegistryPath,
+		stopNodePersist:    make(chan struct{}),
+		serialPort:         config.SerialPort,
+		secondaryPort:      config.SerialPortSecondary,
+		baudRate:           config.BaudRate,
+		healthTimeout:      config.HealthTimeout,
+		eventBroker:        NewEventBroker(),
+		nodeOnlineState:    make(map[string]bool),
+		zoneRegistry:       zoneRegistry,
+		zoneRegistryPath:   config.ZoneRegistryPath,
 		commandStore:       NewCommandStore(),
 		masterMAC:          config.MasterMAC,
 		secondaryMasterMAC: config.SecondaryMasterMAC,
@@ -208,9 +212,7 @@ func (ms *MeshServer) Start() error {
 	ms.serialComm = NewSerialComm(port)
 	ms.running = true
 	SetSerialConnected(true)
-	ms.frameTimeMu.Lock()
-	ms.primaryLastFrameAt = time.Now()
-	ms.frameTimeMu.Unlock()
+	ms.recordFrame("primary")
 
 	// Start message processing goroutine
 	ms.wg.Add(1)
@@ -224,6 +226,7 @@ func (ms *MeshServer) Start() error {
 		} else {
 			ms.secondarySerialComm = NewSerialComm(secondaryPort)
 			ms.secondaryConnected = true
+			ms.recordFrame("secondary")
 			ms.wg.Add(1)
 			go ms.messageProcessor(ms.secondarySerialComm, "secondary")
 			slog.Info("Secondary serial port opened", "port", ms.secondaryPort)
@@ -386,12 +389,9 @@ func (ms *MeshServer) messageProcessor(comm *SerialComm, label string) {
 				consecutiveErrors = 0
 			}
 
-			// Record primary frame time for failover logic
-			if label == "primary" {
-				ms.frameTimeMu.Lock()
-				ms.primaryLastFrameAt = time.Now()
-				ms.frameTimeMu.Unlock()
-			}
+			// Record the frame against the link it arrived on — drives
+			// primary failover and the per-master online flags.
+			ms.recordFrame(label)
 
 			slog.Debug("Message received", "type", msg.MessageType, "dataType", msg.DataType, "origin", macToString(msg.OriginMacAddress))
 
@@ -765,8 +765,8 @@ func (ms *MeshServer) ApproveEnrollment(macStr string, params ApprovalParams) er
 		// Send OP_NODE_ID_SET immediately after JOIN_ACK
 		if nodeId > 0 {
 			payload := make([]byte, MaxDataLength)
-			payload[0] = OpNodeIdSet          // 0xC0
-			copy(payload[1:7], node.MAC[:])   // target MAC
+			payload[0] = OpNodeIdSet        // 0xC0
+			copy(payload[1:7], node.MAC[:]) // target MAC
 			payload[7] = nodeId
 			idMsg := &MeshMessage{
 				ProtoVersion:     5,
@@ -1075,17 +1075,58 @@ func (ms *MeshServer) IsRunning() bool {
 	return ms.running
 }
 
-// IsMasterOnline returns true if the primary master node has sent a frame
-// within the configured health timeout. Returns false if no frame has ever
-// been received (zero time).
-func (ms *MeshServer) IsMasterOnline() bool {
+// recordFrame stamps the last-frame time for the named serial link
+// ("primary" or "secondary"). Attribution is by link, never by the frame's
+// origin MAC: each messageProcessor is bound to exactly one port.
+func (ms *MeshServer) recordFrame(label string) {
 	ms.frameTimeMu.Lock()
-	t := ms.primaryLastFrameAt
-	ms.frameTimeMu.Unlock()
+	defer ms.frameTimeMu.Unlock()
+	switch label {
+	case "primary":
+		ms.primaryLastFrameAt = time.Now()
+	case "secondary":
+		ms.secondaryLastFrameAt = time.Now()
+	}
+}
+
+// frameIsFresh reports whether a last-frame time falls within healthTimeout.
+// A zero time (no frame ever received) is never fresh.
+func (ms *MeshServer) frameIsFresh(t time.Time) bool {
 	if t.IsZero() {
 		return false
 	}
 	return time.Since(t) < ms.healthTimeout
+}
+
+// IsPrimaryOnline returns true if the primary master has sent a frame on its
+// serial link within the configured health timeout.
+func (ms *MeshServer) IsPrimaryOnline() bool {
+	ms.frameTimeMu.Lock()
+	t := ms.primaryLastFrameAt
+	ms.frameTimeMu.Unlock()
+	return ms.frameIsFresh(t)
+}
+
+// IsSecondaryOnline returns true if a secondary master is configured
+// (dual-master mode) and has sent a frame on its serial link within the
+// configured health timeout. Always false in single-master mode, even if the
+// secondary timestamp were somehow set.
+func (ms *MeshServer) IsSecondaryOnline() bool {
+	if _, _, secondaryConfigured := ms.SerialStatus(); !secondaryConfigured {
+		return false
+	}
+	ms.frameTimeMu.Lock()
+	t := ms.secondaryLastFrameAt
+	ms.frameTimeMu.Unlock()
+	return ms.frameIsFresh(t)
+}
+
+// IsMasterOnline returns true if at least one configured master is online:
+// the primary, or — in dual-master mode only — the secondary. In
+// single-master mode this is identical to IsPrimaryOnline. See
+// IsPrimaryOnline / IsSecondaryOnline for the per-link signals.
+func (ms *MeshServer) IsMasterOnline() bool {
+	return ms.IsPrimaryOnline() || ms.IsSecondaryOnline()
 }
 
 // SerialStatus returns the connection state of primary and secondary serial ports,

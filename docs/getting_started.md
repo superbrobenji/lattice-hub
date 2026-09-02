@@ -336,7 +336,7 @@ If any service shows `(unhealthy)`, or keeps restarting, see
 - **Orchestrator status**: `curl http://localhost:8080/api/v1/status` should
   print something like:
   ```json
-  {"success":true,"data":{"mesh":{"masterOnline":true},"nodes":{"nextFreeId":1,"offline":0,"online":0,"total":0},"serial":{"primary":"connected","secondary":"not_configured"}}}
+  {"success":true,"data":{"mesh":{"masterOnline":true,"primaryOnline":true,"secondaryOnline":false},"nodes":{"nextFreeId":1,"offline":0,"online":0,"total":0},"serial":{"primary":"connected","secondary":"not_configured"}}}
   ```
   (`nodes.total: 0` is expected — you haven't enrolled anything yet.)
 - **Dashboard**: open `http://localhost:3000` in a browser. It redirects

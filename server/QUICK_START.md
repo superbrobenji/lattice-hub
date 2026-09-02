@@ -48,7 +48,7 @@ curl http://localhost:8080/api/v1/status
 
 Expected response (no nodes enrolled yet):
 ```json
-{"success":true,"data":{"serial":{"primary":"connected","secondary":"not_configured"},"nodes":{"total":0,"online":0,"offline":0,"nextFreeId":1},"mesh":{"masterOnline":true}}}
+{"success":true,"data":{"serial":{"primary":"connected","secondary":"not_configured"},"nodes":{"total":0,"online":0,"offline":0,"nextFreeId":1},"mesh":{"masterOnline":true,"primaryOnline":true,"secondaryOnline":false}}}
 ```
 
 ## 4. Enroll a Node

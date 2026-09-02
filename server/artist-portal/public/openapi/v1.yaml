@@ -435,8 +435,26 @@ components:
                 offline: { type: integer }
             mesh:
               type: object
+              description: >-
+                Per-master liveness. A master is online when a frame has arrived on
+                its own serial link within the health timeout (75s).
               properties:
-                masterOnline: { type: boolean }
+                masterOnline:
+                  type: boolean
+                  description: >-
+                    True if at least one configured master is online
+                    (primaryOnline || secondaryOnline). Identical to primaryOnline
+                    in single-master mode.
+                primaryOnline:
+                  type: boolean
+                  description: Primary master has sent a frame within the health timeout.
+                secondaryOnline:
+                  type: boolean
+                  description: >-
+                    Secondary master has sent a frame within the health timeout.
+                    Always false when dual-master mode is not enabled
+                    (DUAL_MASTER_ENABLED unset or no SERIAL_PORT_SECONDARY); the
+                    field is still present.
 
   responses:
     NotFound:

@@ -26,7 +26,7 @@ export interface Enrollment {
 export interface SystemStatus {
   serial: { primary: string; secondary: string };
   nodes: { total: number; online: number; offline: number; nextFreeId: number };
-  mesh: { masterOnline: boolean };
+  mesh: { masterOnline: boolean; primaryOnline: boolean; secondaryOnline: boolean };
 }
 
 export type SSEEvent =
