@@ -46,6 +46,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 | `SECONDARY_MASTER_KEY_PATH` | `data/masterkey-secondary.json` | Path to the secondary master's persisted keypair. Only read when `DUAL_MASTER_ENABLED=true`. |
 | `SECONDARY_MASTER_MAC` | *(unset)* | Physical WiFi MAC of the secondary master ESP32. Only read when `DUAL_MASTER_ENABLED=true`; if unset in that mode, a startup warning is logged (`"Dual-master enabled but SECONDARY_MASTER_MAC not configured — secondary JOIN_ACK fields will be omitted"`) and the secondary MAC/public-key fields are omitted from JOIN_ACK. |
 | `BAUD_RATE` | `115200` | Serial baud rate |
+| `HEALTH_TIMEOUT_SECONDS` | `75` | Seconds without a frame before a node (and the master serial link) is reported offline. The stub stack lowers this to `20` in `docker-compose.stub.yml` so the e2e offline-transition tests finish in seconds. |
 | `API_PORT` | `8080` | HTTP API port |
 | `KAFKA_BROKER` | `kafka:9092` | Kafka broker address |
 | `KAFKA_GROUP_ID` | `1` | Kafka consumer group ID |

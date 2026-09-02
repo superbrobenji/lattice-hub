@@ -12,6 +12,13 @@ services:
     environment:
       SERIAL_PORT: tcp://mesh-sim:9000
       AUTH_REGISTRY_PATH: /tmp/nodeauth.json
+      # mesh-sim heartbeats every 3s (orchestrator/meshsim/node.go), so 20s
+      # still leaves 6+ missed beats of margin before a node reads offline.
+      # The 75s production default is tuned for real radios and made the two
+      # e2e offline-transition tests (dashboard/nodes.spec.ts and
+      # dashboard/server-controls.spec.ts) wait 75s each — over half the
+      # suite's wall-clock.
+      HEALTH_TIMEOUT_SECONDS: "20"
 
   mesh-sim:
     container_name: mesh-sim
@@ -20,6 +27,21 @@ services:
       dockerfile: Dockerfile.mesh-sim
     ports:
       - "127.0.0.1:9001:9001"
+    # Same probe as Dockerfile.mesh-sim, but fast: the orchestrator's
+    # depends_on gates on this health check, and every e2e resetStack()
+    # force-recreates both containers, so the time-to-first-probe is paid on
+    # each of the suite's per-file resets. `interval` alone does not help —
+    # Docker spaces probes by `start_interval` (default 5s) while inside
+    # `start_period`, and the first timer is armed at container start, so the
+    # first probe fired at 5s regardless. start_interval needs Docker Engine
+    # 25+ / Compose 2.20+.
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "-O", "/dev/null", "http://localhost:9001/sim/state"]
+      interval: 1s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+      start_interval: 1s
     networks:
       - kafka-net
     restart: unless-stopped

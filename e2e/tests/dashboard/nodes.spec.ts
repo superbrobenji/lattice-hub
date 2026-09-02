@@ -40,12 +40,15 @@ test('silent node shows offline', async ({ dashPage, orch }) => {
 });
 
 test('node goes offline when sim node powers off', async ({ dashPage, sim, orch }) => {
-  // healthTimeout is hard-coded to 75s server-side — the poll below (and the
-  // whole test) needs headroom past the suite-wide 90s default test timeout.
+  // The orchestrator reports a node offline once healthTimeout passes with no
+  // heartbeat (server/orchestrator/mesh/server.go). The stub stack sets
+  // HEALTH_TIMEOUT_SECONDS=20 (server/docker-compose.stub.yml); the bounds
+  // below stay sized for the 75s production default so the test also passes
+  // against an orchestrator without that override.
   test.setTimeout(180_000);
 
   await sim.setOffline(LOUNGE_MAC);
-  // healthTimeout is 75s — poll the API, not the UI, then confirm UI once flipped
+  // Poll the API, not the UI, then confirm the UI once flipped.
   await expect
     .poll(async () => (await orch.nodeByName(LOUNGE_NAME))?.online, { timeout: 120_000 })
     .toBe(false);
