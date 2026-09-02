@@ -16,6 +16,9 @@ export default defineConfig({
   timeout: 90_000,
   expect: { timeout: 20_000 },
   retries: process.env.CI ? 1 : 0,
+  // A test that only passes on retry is flaky, not green — fail the CI job
+  // for it instead of letting `retries` above quietly hide it.
+  failOnFlakyTests: !!process.env.CI,
   reporter: [['list'], ['html', { open: 'never' }]],
   use: {
     trace: 'retain-on-failure',

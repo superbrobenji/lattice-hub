@@ -96,8 +96,10 @@ down and the other is still serving.
 server reached its message broker when it started, and `topicsReady` means the
 three history streams (`motion-trigger`, `mesh-enrollment`, `mesh-messages`)
 exist — the server creates them itself and keeps retrying until they do.
-`failedWrites` counts events that could not be saved since the server started;
-`lastError` and `lastFailureAt` say what went wrong last and when, and each
+`failedWrites` counts events that could not be saved since the server started —
+delivery happens asynchronously, so a failure is counted a moment after the
+write itself, not synchronously with it. `lastError` and `lastFailureAt` say
+what went wrong last and when, and each
 stream repeats the same fields under `topics`. If `connected` is `false` or
 `failedWrites` keeps climbing, live updates still work but the history pages
 will have gaps.
