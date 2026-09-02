@@ -16,12 +16,11 @@ test('status shows master online with node counts', async ({ dashPage, orch }) =
 });
 
 test('stop and start the mesh process', async ({ dashPage }) => {
-  // server/orchestrator/mesh/server.go: IsMasterOnline() is
-  // `time.Since(primaryLastFrameAt) < healthTimeout` (hard-coded 75s), and
-  // Stop() never resets primaryLastFrameAt. So "Master online" keeps
-  // reading Online for up to ~75s after Stop is clicked, regardless of the
-  // button click itself — this needs the same order of headroom as the
-  // node health-timeout transition, well past the 90s default test timeout.
+  // server/orchestrator/mesh/server.go: Stop() clears both links'
+  // last-frame times, so "Master online" flips to Offline on the next
+  // reload rather than lingering for the 75s healthTimeout. The generous
+  // timeouts below are kept as headroom for the stub stack's process
+  // control round-trips, not for a health-timeout transition.
   test.setTimeout(180_000);
 
   await dashPage.goto(DASHBOARD_URL + '/server');

@@ -49,7 +49,7 @@ export interface OrchCommandStatus {
 
 /** GET /api/v1/status response shape (mesh.v1Status). */
 export interface OrchStatus {
-  mesh: { masterOnline: boolean };
+  mesh: { masterOnline: boolean; primaryOnline: boolean; secondaryOnline: boolean };
   nodes: { total: number; online: number; offline: number; nextFreeId: number };
   serial: { primary: string; secondary: string };
 }

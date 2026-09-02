@@ -32,7 +32,7 @@ Response:
   "data": {
     "serial": { "primary": "connected", "secondary": "not_configured" },
     "nodes": { "total": 3, "online": 2, "offline": 1 },
-    "mesh": { "masterOnline": true }
+    "mesh": { "masterOnline": true, "primaryOnline": true, "secondaryOnline": false }
   }
 }
 ```

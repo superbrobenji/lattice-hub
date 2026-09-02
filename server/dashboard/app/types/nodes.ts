@@ -25,5 +25,5 @@ export interface IEnrollment {
 export interface ServerStatus {
   serial: { primary: string; secondary: string };
   nodes: { total: number; online: number; offline: number };
-  mesh: { masterOnline: boolean };
+  mesh: { masterOnline: boolean; primaryOnline: boolean; secondaryOnline: boolean };
 }

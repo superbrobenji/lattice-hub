@@ -192,10 +192,12 @@ go run .
 curl -s http://localhost:8080/api/v1/status
 ```
 
-Look for `"serial":{"primary":"connected","secondary":"connected"}`. **`mesh.masterOnline` only
-reflects the primary** (see #166 below) — don't use it to judge whether the secondary is healthy;
-watch for periodic `"Health report" mac=<secondary MAC>` lines in the orchestrator's own log
-instead, which each master sends independently.
+Look for `"serial":{"primary":"connected","secondary":"connected"}` and
+`"mesh":{"masterOnline":true,"primaryOnline":true,"secondaryOnline":true}`. `primaryOnline` and
+`secondaryOnline` each track their own serial link (a frame within the last 75s), and
+`masterOnline` is `true` while either master is online. As a cross-check, watch for periodic
+`"Health report" mac=<secondary MAC>` lines in the orchestrator's own log, which each master sends
+independently.
 
 ### Worked example (this session's actual boards)
 
@@ -209,8 +211,8 @@ instead, which each master sends independently.
 1. Confirm both `serial.primary`/`serial.secondary` show `"connected"` and both MACs are producing
    periodic health reports in the log.
 2. Physically unplug one master. Watch the *other* master's health reports keep arriving on
-   schedule, uninterrupted — that's the real signal a healthy independent link, not the
-   `masterOnline` field (see #166).
+   schedule, uninterrupted, and `mesh.primaryOnline` / `mesh.secondaryOnline` flip to `false`
+   for the unplugged link only (after the 75s health timeout) while `masterOnline` stays `true`.
 3. Physically replug the same board. **It will not self-heal** (#161/#162) — the device path may
    also have changed (`ls /dev/cu.usbserial-*` before assuming which path to use; ours shifted from
    `usbserial-3` to `usbserial-4` on one replug, and stayed the same on another — not consistent).
@@ -237,10 +239,6 @@ fully independent of the other's state either way.
   which drives DTR/RTS in ESP-IDF's standard reset sequence) to revive it. If restarting the
   orchestrator alone doesn't bring the connection back, try that before assuming the board itself
   is broken.
-- [lattice-hub#166](https://github.com/superbrobenji/lattice-hub/issues/166): `mesh.masterOnline`
-  in `/api/v1/status` only tracks the primary link. It reads `false` while a perfectly healthy
-  secondary is serving, and `true` while a dead secondary goes unnoticed. Watch each master's own
-  health-report stream in the log, not this field, to judge dual-master health.
 - [lattice-hub#167](https://github.com/superbrobenji/lattice-hub/issues/167): occasionally a
   restart's read loop gets stuck mid-session (distinct from #161 — the connection was never fully
   dropped, the recovery path itself wedged) with no further log output to indicate it. If a restart

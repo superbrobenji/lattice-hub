@@ -60,7 +60,7 @@ curl http://your-server:8080/api/v1/status
   "data": {
     "serial": { "primary": "connected", "secondary": "not_configured" },
     "nodes": { "total": 5, "online": 4, "offline": 1, "nextFreeId": 6 },
-    "mesh": { "masterOnline": true }
+    "mesh": { "masterOnline": true, "primaryOnline": true, "secondaryOnline": false }
   }
 }
 ```
@@ -70,6 +70,14 @@ backup link configured, 5 devices are registered and 4 of them are currently
 checking in, and the mesh's master device is online. `nextFreeId` is just the
 next ID number a newly-joining device would be given — useful mainly for
 software, not something you need to act on.
+
+The `mesh` block has three flags. `primaryOnline` and `secondaryOnline` say
+whether each master has been heard from on its own serial link within the
+last 75 seconds; `secondaryOnline` is always `false` unless dual-master mode
+is enabled (`DUAL_MASTER_ENABLED=true` with `SERIAL_PORT_SECONDARY` set).
+`masterOnline` is the one-glance answer — `true` if *any* configured master
+is online — so in a dual-master setup it stays `true` while one master is
+down and the other is still serving.
 
 **Use this when:** you want a quick "is the installation healthy right now?"
 answer before digging into individual devices.
