@@ -29,11 +29,17 @@ export interface SystemStatus {
   mesh: { masterOnline: boolean };
 }
 
-export type SSEEvent =
-  | { type: "motion"; nodeId: number; name: string; zone: string; timestamp: string }
+/**
+ * Live event from GET /api/v1/events, discriminated by the SSE event name.
+ * Every event carries an RFC 3339 `timestamp`: the orchestrator sets it, and
+ * `parseSSEEvent` stamps the receive time when an older server omits it.
+ */
+export type SSEEvent = (
+  | { type: "motion"; nodeId: number; name: string; zone: string }
   | { type: "health"; nodeId: number; name: string; online: boolean; uptime: number }
   | { type: "node_online"; nodeId: number; name: string }
   | { type: "node_offline"; nodeId: number; name: string }
   | { type: "enrolled"; nodeId: number; name: string; adapterType: string }
   | { type: "command_ack"; commandId: string; nodeId: number; status: string }
-  | { type: "route_update"; nodeId: number; parentId: number | null };
+  | { type: "route_update"; nodeId: number; parentId: number | null }
+) & { timestamp: string };
