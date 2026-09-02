@@ -48,7 +48,8 @@ sentence.
 
 This is the "is it working?" check. It tells you whether the server's radio
 connections are up, how many devices it knows about and how many of those
-are currently reachable, and whether the mesh's master device is online.
+are currently reachable, whether the mesh's master device is online, and
+whether event history is being saved.
 
 ```bash
 curl http://your-server:8080/api/v1/status
@@ -60,7 +61,19 @@ curl http://your-server:8080/api/v1/status
   "data": {
     "serial": { "primary": "connected", "secondary": "not_configured" },
     "nodes": { "total": 5, "online": 4, "offline": 1, "nextFreeId": 6 },
-    "mesh": { "masterOnline": true, "primaryOnline": true, "secondaryOnline": false }
+    "mesh": { "masterOnline": true, "primaryOnline": true, "secondaryOnline": false },
+    "kafka": {
+      "connected": true,
+      "topicsReady": true,
+      "topics": {
+        "motion-trigger":  { "ready": true, "failedWrites": 0, "lastError": "", "lastFailureAt": null },
+        "mesh-enrollment": { "ready": true, "failedWrites": 0, "lastError": "", "lastFailureAt": null },
+        "mesh-messages":   { "ready": true, "failedWrites": 0, "lastError": "", "lastFailureAt": null }
+      },
+      "failedWrites": 0,
+      "lastError": "",
+      "lastFailureAt": null
+    }
   }
 }
 ```
@@ -78,6 +91,16 @@ is enabled (`DUAL_MASTER_ENABLED=true` with `SERIAL_PORT_SECONDARY` set).
 `masterOnline` is the one-glance answer — `true` if *any* configured master
 is online — so in a dual-master setup it stays `true` while one master is
 down and the other is still serving.
+
+`kafka` tells you whether event history is being saved. `connected` means the
+server reached its message broker when it started, and `topicsReady` means the
+three history streams (`motion-trigger`, `mesh-enrollment`, `mesh-messages`)
+exist — the server creates them itself and keeps retrying until they do.
+`failedWrites` counts events that could not be saved since the server started;
+`lastError` and `lastFailureAt` say what went wrong last and when, and each
+stream repeats the same fields under `topics`. If `connected` is `false` or
+`failedWrites` keeps climbing, live updates still work but the history pages
+will have gaps.
 
 **Use this when:** you want a quick "is the installation healthy right now?"
 answer before digging into individual devices.

@@ -47,8 +47,27 @@ export interface OrchCommandStatus {
   ackedAt?: number;
 }
 
+/** One producer topic inside OrchStatus.kafka.topics. */
+export interface OrchKafkaTopicStatus {
+  ready: boolean;
+  failedWrites: number;
+  lastError: string;
+  lastFailureAt: string | null;
+}
+
+/** Event-store health (eventStore.Stats): topics are created at startup. */
+export interface OrchKafkaStatus {
+  connected: boolean;
+  topicsReady: boolean;
+  topics: Record<string, OrchKafkaTopicStatus>;
+  failedWrites: number;
+  lastError: string;
+  lastFailureAt: string | null;
+}
+
 /** GET /api/v1/status response shape (mesh.v1Status). */
 export interface OrchStatus {
+  kafka: OrchKafkaStatus;
   mesh: { masterOnline: boolean; primaryOnline: boolean; secondaryOnline: boolean };
   nodes: { total: number; online: number; offline: number; nextFreeId: number };
   serial: { primary: string; secondary: string };

@@ -4,7 +4,8 @@ import { requireAuth } from "~/services/auth.server";
 import { orchestrator } from "~/services/orchestrator.server";
 import { PageHeader } from "~/components/layout/PageHeader";
 import { StatusDot } from "~/components/ui/StatusDot";
-import type { ServerStatus } from "~/types/nodes";
+import type { StatusVariant } from "~/components/ui/StatusDot";
+import type { KafkaStatus, ServerStatus } from "~/types/nodes";
 
 export async function loader({ request }: Route.LoaderArgs) {
   await requireAuth(request);
@@ -20,6 +21,20 @@ export async function action({ request }: Route.ActionArgs) {
   if (intent === "stop") await orchestrator.stopServer();
   const status = await orchestrator.getStatus();
   return { status };
+}
+
+function kafkaVariant(k: KafkaStatus | undefined): StatusVariant {
+  if (!k) return "unknown";
+  if (!k.connected) return "error";
+  if (!k.topicsReady || k.failedWrites > 0) return "warn";
+  return "ok";
+}
+
+function kafkaLabel(k: KafkaStatus | undefined): string {
+  if (!k) return "Unknown";
+  if (!k.connected) return "Disconnected";
+  if (!k.topicsReady) return "Topics not ready";
+  return k.failedWrites > 0 ? `Connected, ${k.failedWrites} failed writes` : "Connected";
 }
 
 export default function ServerPage({ loaderData }: Route.ComponentProps) {
@@ -59,6 +74,15 @@ export default function ServerPage({ loaderData }: Route.ComponentProps) {
             <span className="text-sm text-text">
               {status.nodes.total} / {status.nodes.online} / {status.nodes.offline}
             </span>
+          </div>
+          <div className="px-4 py-3 flex items-center justify-between">
+            <span className="text-sm text-muted">Kafka history</span>
+            <div className="flex items-center gap-2">
+              <StatusDot variant={kafkaVariant(status.kafka)} />
+              <span className="text-sm text-text" title={status.kafka?.lastError || undefined}>
+                {kafkaLabel(status.kafka)}
+              </span>
+            </div>
           </div>
         </div>
 
