@@ -16,7 +16,7 @@ Server-side counterpart to the [Lattice ESP32 firmware](https://github.com/super
 │   (Go service)   │    115200 baud   │                 │                     │   (PIR, LED)    │
 └──────────────────┘                  └─────────────────┘                     └─────────────────┘
         │
-        ├──► Kafka (motion-trigger, mesh-messages topics)
+        ├──► Kafka (motion-trigger, mesh-enrollment, mesh-messages topics)
         │
         └──► HTTP API :8080
                 │
@@ -72,8 +72,11 @@ curl http://localhost:8080/api/v1/status
 
 Expected response (no nodes enrolled yet):
 ```json
-{"success":true,"data":{"serial":{"primary":"connected","secondary":"not_configured"},"nodes":{"total":0,"online":0,"offline":0,"nextFreeId":1},"mesh":{"masterOnline":true,"primaryOnline":true,"secondaryOnline":false}}}
+{"success":true,"data":{"kafka":{"connected":true,"topicsReady":true,"topics":{"mesh-enrollment":{"ready":true,"failedWrites":0,"lastError":"","lastFailureAt":null},"mesh-messages":{"ready":true,"failedWrites":0,"lastError":"","lastFailureAt":null},"motion-trigger":{"ready":true,"failedWrites":0,"lastError":"","lastFailureAt":null}},"failedWrites":0,"lastError":"","lastFailureAt":null},"mesh":{"masterOnline":true,"primaryOnline":true,"secondaryOnline":false},"nodes":{"total":0,"online":0,"offline":0,"nextFreeId":1},"serial":{"primary":"connected","secondary":"not_configured"}}}
 ```
+
+`kafka.topicsReady` should be `true` and `kafka.failedWrites` should stay at `0`; otherwise events are
+still delivered live but no history is being persisted (see `docs/api_guide.md`, section 1).
 
 See [server/QUICK_START.md](server/QUICK_START.md) for USB serial device setup, Proxmox passthrough, and troubleshooting.
 

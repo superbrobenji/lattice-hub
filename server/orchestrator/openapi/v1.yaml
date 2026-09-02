@@ -417,6 +417,54 @@ components:
         receivedAt: { type: integer, description: Unix timestamp }
         approvedAt: { type: integer, description: Unix timestamp }
 
+    KafkaTopicStatus:
+      type: object
+      description: Health of one producer topic.
+      properties:
+        ready:
+          type: boolean
+          description: True once the topic exists on the broker.
+        failedWrites:
+          type: integer
+          description: Deliveries to this topic that returned an error since the orchestrator started.
+        lastError:
+          type: string
+          description: Most recent delivery or creation error for this topic; empty if none.
+        lastFailureAt:
+          type: string
+          nullable: true
+          format: date-time
+          description: When lastError was recorded; null if never.
+    KafkaStatus:
+      type: object
+      description: >-
+        Event-history store health. The orchestrator creates its producer
+        topics explicitly at startup and retries until the broker accepts; a
+        topic that is not ready, or a climbing failedWrites, means events are
+        still delivered live but no history is being persisted.
+      properties:
+        connected:
+          type: boolean
+          description: True once the broker was reachable at startup.
+        topicsReady:
+          type: boolean
+          description: True once every producer topic exists on the broker.
+        topics:
+          type: object
+          description: Per-topic state keyed by topic name (motion-trigger, mesh-enrollment, mesh-messages).
+          additionalProperties:
+            $ref: "#/components/schemas/KafkaTopicStatus"
+        failedWrites:
+          type: integer
+          description: Total failed deliveries across all topics since the orchestrator started.
+        lastError:
+          type: string
+          description: Most recent error of any kind; empty if none.
+        lastFailureAt:
+          type: string
+          nullable: true
+          format: date-time
+          description: When lastError was recorded; null if never.
     StatusResponse:
       type: object
       properties:
@@ -424,6 +472,8 @@ components:
         data:
           type: object
           properties:
+            kafka:
+              $ref: "#/components/schemas/KafkaStatus"
             serial:
               type: object
               properties:

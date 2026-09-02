@@ -38,6 +38,7 @@ func (api *APIServer) v1Status(w http.ResponseWriter, r *http.Request) {
 	api.writeJSON(w, http.StatusOK, APIResponse{
 		Success: true,
 		Data: map[string]interface{}{
+			"kafka": api.meshServer.KafkaStats(),
 			"serial": map[string]string{
 				"primary":   primaryStatus,
 				"secondary": secondaryStatus,

@@ -580,11 +580,11 @@ func (ms *MeshServer) handleEnrollmentRequest(msg *MeshMessage) error {
 	}
 	if ms.eventStore != nil {
 		j, _ := json.Marshal(event)
-		err := ms.eventStore.WriteMessage(string(j), "mesh-enrollment")
+		err := ms.eventStore.WriteMessage(string(j), EventStore.TopicMeshEnrollment)
 		if err != nil {
 			slog.Warn("Failed to write enrollment event to Kafka", "error", err)
 		}
-		RecordKafkaWrite("mesh-enrollment", err)
+		RecordKafkaWrite(EventStore.TopicMeshEnrollment, err)
 	}
 	return nil
 }
@@ -610,8 +610,8 @@ func (ms *MeshServer) handlePIRData(msg *MeshMessage) error {
 		return nil
 	}
 
-	writeErr := ms.eventStore.WriteMessage(string(eventJSON), "motion-trigger")
-	RecordKafkaWrite("motion-trigger", writeErr)
+	writeErr := ms.eventStore.WriteMessage(string(eventJSON), EventStore.TopicMotionTrigger)
+	RecordKafkaWrite(EventStore.TopicMotionTrigger, writeErr)
 	if writeErr != nil {
 		slog.Warn("Failed to write PIR event to Kafka", "error", writeErr)
 	}
@@ -1182,6 +1182,16 @@ func (ms *MeshServer) GetTxPowerPreset() (uint8, string) {
 	return ms.currentTxPreset, txPowerPresetNames[ms.currentTxPreset]
 }
 
+// KafkaStats reports the event store's health for GET /api/v1/status. With
+// no event store configured (Kafka unreachable at startup) every producer
+// topic is reported as not ready.
+func (ms *MeshServer) KafkaStats() EventStore.Stats {
+	if ms.eventStore == nil {
+		return EventStore.DisconnectedStats()
+	}
+	return ms.eventStore.Stats()
+}
+
 // logMessageToKafka logs messages to Kafka for debugging and monitoring
 func (ms *MeshServer) logMessageToKafka(msg *MeshMessage, direction string) error {
 	if ms.eventStore == nil {
@@ -1216,7 +1226,7 @@ func (ms *MeshServer) logMessageToKafka(msg *MeshMessage, direction string) erro
 		return fmt.Errorf("failed to marshal log entry: %w", err)
 	}
 
-	err = ms.eventStore.WriteMessage(string(logJSON), "mesh-messages")
-	RecordKafkaWrite("mesh-messages", err)
+	err = ms.eventStore.WriteMessage(string(logJSON), EventStore.TopicMeshMessages)
+	RecordKafkaWrite(EventStore.TopicMeshMessages, err)
 	return err
 }
