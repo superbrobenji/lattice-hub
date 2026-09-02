@@ -80,10 +80,10 @@ func (h *KafkaHandler) RecentEvents(w http.ResponseWriter, r *http.Request) {
 	toRead := lastOffset - startOffset
 
 	reader := kafka.NewReader(kafka.ReaderConfig{
-		Brokers:  []string{h.broker},
-		Topic:    "motion-trigger",
+		Brokers:   []string{h.broker},
+		Topic:     "motion-trigger",
 		Partition: 0,
-		MaxBytes: 1024 * 1024,
+		MaxBytes:  1024 * 1024,
 	})
 	defer func() { _ = reader.Close() }()
 
