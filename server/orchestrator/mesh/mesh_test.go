@@ -10,6 +10,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	EventStore "github.com/superbrobenji/lattice-hub/eventStore"
 )
 
 // MockSerialPort implements SerialPort for testing
@@ -76,6 +78,9 @@ func newBlockingEventStore() *blockingEventStore {
 
 func (b *blockingEventStore) Connect() error { return nil }
 func (b *blockingEventStore) Close() error   { return nil }
+func (b *blockingEventStore) Stats() EventStore.Stats {
+	return EventStore.DisconnectedStats()
+}
 func (b *blockingEventStore) WriteMessage(_ string, _ string) error {
 	close(b.ready) // signal: we are inside WriteMessage (RLock is held)
 	<-b.release    // wait until test says to continue

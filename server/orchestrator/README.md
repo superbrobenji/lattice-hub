@@ -10,7 +10,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 - USB serial interface to ESP32 master node (protobuf framing, 115200 baud)
 - ESP-NOW mesh node management — configure, monitor, and broadcast
 - Node health monitoring with configurable online/offline timeout
-- Kafka event logging (`motion-trigger`, `mesh-messages` topics)
+- Kafka event logging (`motion-trigger`, `mesh-enrollment`, `mesh-messages` topics)
 - Prometheus metrics endpoint
 - RESTful HTTP API
 - Node authentication with replay-protection persistence
@@ -27,6 +27,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 ┌─────────────────┐
 │   Kafka Store   │
 │  motion-trigger │
+│ mesh-enrollment │
 │  mesh-messages  │
 └─────────────────┘
 ```
@@ -277,7 +278,16 @@ the rest of the wire protocol.
 | Topic | Events |
 |-------|--------|
 | `motion-trigger` | PIR motion detection events (JSON) |
-| `mesh-messages` | All mesh protocol messages for debugging (JSON) |
+| `mesh-enrollment` | Enrollment requests from unenrolled nodes (JSON) |
+| `mesh-messages` | All mesh protocol messages for debugging, including health and route reports (JSON) |
+
+The orchestrator creates all three topics itself when it connects (one
+partition, replication factor 1) and keeps retrying with backoff until the
+broker accepts, so the deployment does not depend on the broker's
+`auto.create.topics.enable` (kafka-go's producer never asks for auto-creation;
+see `eventStore/ensure.go`). Topic readiness and per-topic delivery failures
+are reported under `kafka` in `GET /api/v1/status`. The names live in
+`eventStore/topics.go`.
 
 ## Docker Deployment
 

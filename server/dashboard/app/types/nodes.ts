@@ -22,7 +22,24 @@ export interface IEnrollment {
   approvedAt: number;
 }
 
+export interface KafkaTopicStatus {
+  ready: boolean;
+  failedWrites: number;
+  lastError: string;
+  lastFailureAt: string | null;
+}
+
+export interface KafkaStatus {
+  connected: boolean;
+  topicsReady: boolean;
+  topics: Record<string, KafkaTopicStatus>;
+  failedWrites: number;
+  lastError: string;
+  lastFailureAt: string | null;
+}
+
 export interface ServerStatus {
+  kafka: KafkaStatus;
   serial: { primary: string; secondary: string };
   nodes: { total: number; online: number; offline: number };
   mesh: { masterOnline: boolean; primaryOnline: boolean; secondaryOnline: boolean };
