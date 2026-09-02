@@ -16,12 +16,11 @@ function formatTime(iso: string): string {
 
 function EventRow({ event }: { event: SSEEvent }) {
   const color = typeColors[event.type] ?? "text-muted";
-  const ts = "timestamp" in event ? event.timestamp : new Date().toISOString();
   const detail = eventDetail(event);
 
   return (
     <div className="flex items-start gap-3 py-2 border-b border-border/50 text-xs last:border-0">
-      <span className="text-muted shrink-0 font-mono">{formatTime(ts)}</span>
+      <span className="text-muted shrink-0 font-mono">{formatTime(event.timestamp)}</span>
       <span className={`shrink-0 font-medium ${color}`}>{event.type}</span>
       {"name" in event && (
         <span className="text-muted truncate">{event.name}</span>

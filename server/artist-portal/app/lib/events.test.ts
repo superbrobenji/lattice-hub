@@ -41,44 +41,44 @@ describe("eventDetail", () => {
   });
 
   it("health shows online state and human-readable uptime", () => {
-    const e: SSEEvent = { type: "health", nodeId: 3, name: "Entrance", online: true, uptime: 7389 };
+    const e: SSEEvent = { type: "health", nodeId: 3, name: "Entrance", online: true, uptime: 7389, timestamp: "2026-09-01T10:00:00Z" };
     expect(eventDetail(e)).toBe("online · up 2h 3m");
   });
 
   it("health shows offline state", () => {
-    const e: SSEEvent = { type: "health", nodeId: 3, name: "Entrance", online: false, uptime: 12 };
+    const e: SSEEvent = { type: "health", nodeId: 3, name: "Entrance", online: false, uptime: 12, timestamp: "2026-09-01T10:00:00Z" };
     expect(eventDetail(e)).toBe("offline · up 12s");
   });
 
   it("node_online has no detail beyond the name the row already shows", () => {
-    const e: SSEEvent = { type: "node_online", nodeId: 3, name: "Entrance" };
+    const e: SSEEvent = { type: "node_online", nodeId: 3, name: "Entrance", timestamp: "2026-09-01T10:00:00Z" };
     expect(eventDetail(e)).toBe("");
   });
 
   it("node_offline has no detail beyond the name the row already shows", () => {
-    const e: SSEEvent = { type: "node_offline", nodeId: 3, name: "Entrance" };
+    const e: SSEEvent = { type: "node_offline", nodeId: 3, name: "Entrance", timestamp: "2026-09-01T10:00:00Z" };
     expect(eventDetail(e)).toBe("");
   });
 
   it("enrolled shows the adapter type", () => {
-    const e: SSEEvent = { type: "enrolled", nodeId: 3, name: "Entrance", adapterType: "pir" };
+    const e: SSEEvent = { type: "enrolled", nodeId: 3, name: "Entrance", adapterType: "pir", timestamp: "2026-09-01T10:00:00Z" };
     expect(eventDetail(e)).toBe("type pir");
   });
 
   it("command_ack shows node, status and command id", () => {
     const e: SSEEvent = {
-      type: "command_ack", commandId: "3f2a9c1e-0000-4000-8000-000000000000", nodeId: 3, status: "ok",
+      type: "command_ack", commandId: "3f2a9c1e-0000-4000-8000-000000000000", nodeId: 3, status: "ok", timestamp: "2026-09-01T10:00:00Z",
     };
     expect(eventDetail(e)).toBe("node 3 · ok · cmd 3f2a9c1e-0000-4000-8000-000000000000");
   });
 
   it("route_update shows node and parent", () => {
-    const e: SSEEvent = { type: "route_update", nodeId: 3, parentId: 1 };
+    const e: SSEEvent = { type: "route_update", nodeId: 3, parentId: 1, timestamp: "2026-09-01T10:00:00Z" };
     expect(eventDetail(e)).toBe("node 3 → parent 1");
   });
 
   it("route_update shows master when the parent is null (root)", () => {
-    const e: SSEEvent = { type: "route_update", nodeId: 3, parentId: null };
+    const e: SSEEvent = { type: "route_update", nodeId: 3, parentId: null, timestamp: "2026-09-01T10:00:00Z" };
     expect(eventDetail(e)).toBe("node 3 → master");
   });
 });
