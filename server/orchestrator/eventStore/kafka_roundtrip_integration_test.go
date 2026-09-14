@@ -19,7 +19,7 @@ func lastOffset(t *testing.T, broker string) int64 {
 	if err != nil {
 		t.Fatalf("DialLeader: %v", err)
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 	off, err := conn.ReadLastOffset()
 	if err != nil {
 		t.Fatalf("ReadLastOffset: %v", err)
