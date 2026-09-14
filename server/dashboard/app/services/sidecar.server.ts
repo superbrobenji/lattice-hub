@@ -39,7 +39,12 @@ export const sidecar = {
   },
   getKafkaStatus: () => sidecarFetch<KafkaStatus>("/sidecar/kafka/status"),
   getRecentEvents: (n = 50) =>
-    sidecarFetch<KafkaEventsResponse>(`/sidecar/kafka/events/recent?n=${n}`),
+    // React Router's streaming defer aborts the document at 6s, which sends an
+    // aborted Await to the root ErrorBoundary instead of the route's own
+    // "Kafka unavailable" fallback — so time this call out first, at 4s.
+    sidecarFetch<KafkaEventsResponse>(`/sidecar/kafka/events/recent?n=${n}`, {
+      signal: AbortSignal.timeout(4000),
+    }),
   getServicesHealth: () =>
     sidecarFetch<HealthReport>("/sidecar/services/health"),
 };
