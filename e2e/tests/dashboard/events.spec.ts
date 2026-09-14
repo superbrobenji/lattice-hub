@@ -12,7 +12,11 @@ test('motion event lands in the Kafka events page', async ({ dashPage, sim }) =>
     .poll(
       async () => {
         await dashPage.goto(DASHBOARD_URL + '/events');
-        return dashPage.getByText('motion', { exact: false }).count();
+        // Assert on the triggered node's MAC, which only appears inside a
+        // rendered event's JSON value — not 'motion', which also matches the
+        // static page header ("Kafka topic: motion-trigger") and so passed
+        // even when the page rendered zero events.
+        return dashPage.getByText(ENTRANCE_MAC, { exact: false }).count();
       },
       { timeout: 30_000 },
     )
