@@ -16,7 +16,11 @@ type EventStoreInterface interface {
 type TopicStats struct {
 	// Ready is true once the topic is known to exist on the broker.
 	Ready bool `json:"ready"`
-	// FailedWrites counts deliveries to this topic that returned an error.
+	// FailedWrites counts deliveries to this topic that the writer's
+	// asynchronous Completion callback reported as failed. WriteMessage
+	// itself returns immediately without waiting for delivery, so a failure
+	// is only counted once Kafka's response is known — moments after the
+	// WriteMessage call, not synchronously with it.
 	FailedWrites uint64 `json:"failedWrites"`
 	// LastError is the most recent delivery or creation error, "" if none.
 	LastError string `json:"lastError"`
@@ -32,7 +36,9 @@ type Stats struct {
 	TopicsReady bool `json:"topicsReady"`
 	// Topics holds per-topic state, keyed by topic name.
 	Topics map[string]TopicStats `json:"topics"`
-	// FailedWrites is the total number of failed deliveries across topics.
+	// FailedWrites is the total number of failed deliveries across topics,
+	// counted asynchronously as each one's outcome arrives (see
+	// TopicStats.FailedWrites).
 	FailedWrites uint64 `json:"failedWrites"`
 	// LastError is the most recent error of any kind, "" if none.
 	LastError string `json:"lastError"`
