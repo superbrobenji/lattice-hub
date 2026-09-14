@@ -45,6 +45,27 @@ func (h *KafkaHandler) Status(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// recentEventsReaderConfig builds the kafka.ReaderConfig used by RecentEvents.
+//
+// kafka.Reader prefetches: as soon as ReadMessage returns the topic's last
+// existing message, the reader's background goroutine has already issued the
+// *next* Fetch call to the broker. reader.Close() waits for that in-flight
+// Fetch to return before it can return itself. The broker only replies once
+// it has data or MaxWait elapses, and kafka-go's default MaxWait is 10s — so
+// with the zero-value config, RecentEvents (which always defer-Closes the
+// reader) would take ~9-10s to respond whenever there is no newer message on
+// the topic, even though the actual read only takes milliseconds. Capping
+// MaxWait keeps that trailing Fetch — and so Close() — short.
+func recentEventsReaderConfig(broker string) kafka.ReaderConfig {
+	return kafka.ReaderConfig{
+		Brokers:   []string{broker},
+		Topic:     "motion-trigger",
+		Partition: 0,
+		MaxBytes:  1024 * 1024,
+		MaxWait:   500 * time.Millisecond,
+	}
+}
+
 func (h *KafkaHandler) RecentEvents(w http.ResponseWriter, r *http.Request) {
 	n := 50
 	if nStr := r.URL.Query().Get("n"); nStr != "" {
@@ -79,12 +100,7 @@ func (h *KafkaHandler) RecentEvents(w http.ResponseWriter, r *http.Request) {
 	}
 	toRead := lastOffset - startOffset
 
-	reader := kafka.NewReader(kafka.ReaderConfig{
-		Brokers:   []string{h.broker},
-		Topic:     "motion-trigger",
-		Partition: 0,
-		MaxBytes:  1024 * 1024,
-	})
+	reader := kafka.NewReader(recentEventsReaderConfig(h.broker))
 	defer func() { _ = reader.Close() }()
 
 	if err := reader.SetOffset(startOffset); err != nil {
