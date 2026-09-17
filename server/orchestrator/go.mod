@@ -1,6 +1,6 @@
 module github.com/superbrobenji/lattice-hub
 
-go 1.25.0
+go 1.26.0
 
 require (
 	github.com/google/uuid v1.6.0
@@ -9,7 +9,7 @@ require (
 	github.com/segmentio/kafka-go v0.4.51
 	github.com/superbrobenji/lattice-protocol v0.6.0
 	go.bug.st/serial v1.8.0
-	golang.org/x/crypto v0.55.0
+	golang.org/x/crypto v0.57.0
 	google.golang.org/protobuf v1.36.12
 )
 
@@ -22,5 +22,5 @@ require (
 	github.com/prometheus/client_model v0.6.2 // indirect
 	github.com/prometheus/common v0.70.1 // indirect
 	github.com/prometheus/procfs v0.21.1 // indirect
-	golang.org/x/sys v0.47.0 // indirect
+	golang.org/x/sys v0.48.0 // indirect
 )
