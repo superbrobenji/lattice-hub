@@ -30,7 +30,7 @@
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.5",
     "@types/swagger-ui-react": "5.18.0",
-    "oxlint": "1.78.0",
+    "oxlint": "1.80.0",
     "tailwindcss": "^4.1.11",
     "typescript": "~6.0.2",
     "vite": "8.2.2",
